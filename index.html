@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/openchemlib@8.17.0/dist/openchemlib-minimal.js"></script>
 <style>
 /* Bố cục: thanh đỏ sẫm trên cùng · trái là ô nội dung · phải là trang A4 xem trước */
 :root{
@@ -17,6 +18,7 @@
   --doc:"Times New Roman",Times,serif;
 }
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 html,body{height:100%}
 body{margin:0;font-family:var(--ui);color:var(--ink);background:var(--ground);overflow:hidden}
 #bg{position:fixed;inset:0;z-index:0;pointer-events:none}
@@ -89,6 +91,12 @@ textarea{flex:1;border:0;resize:none;padding:14px 16px;font:14.5px/1.7 var(--ui)
 .lb{font-weight:bold}
 .unclear{background:#ffe9a8;outline:1px dashed var(--warn)}
 .figbox{display:inline-block;border:1.5px dashed #c9a2aa;color:#8a1c2b;background:#fdf6f7;border-radius:6px;padding:4px 14px;font-family:var(--ui);font-size:10pt;line-height:1.5}
+.figok{cursor:pointer;line-height:1!important;padding-top:3pt;padding-bottom:3pt}
+.figok:hover svg,.figok:hover img{outline:2px dashed #e7b7bf;outline-offset:3px;border-radius:4px}
+.fig[data-key]{cursor:pointer}
+.figbox em{display:block;font-style:normal;font-size:8.5pt;color:#b0727e;margin-top:2px}
+.figbox.bad{border-color:var(--warn);color:var(--warn);background:#fff8ec}
+.figbox:hover{background:#fbeef0;transform:translateY(-1px);transition:.2s}
 .page table{border-collapse:collapse;margin-left:1.75cm;line-height:1.15;margin-top:2px}
 .page td,.page th{border:.5pt solid #000;padding:2pt 5pt;text-align:center;vertical-align:middle;font-weight:normal}
 .page th{background:#fbe4d5;font-weight:bold}
@@ -105,6 +113,24 @@ svg.vf{overflow:visible}
 .card header h3{margin:0;font-size:16px;color:var(--wine)}
 .card pre{margin:0;padding:16px 18px;overflow:auto;white-space:pre-wrap;font:13px/1.6 ui-monospace,Consolas,monospace;flex:1}
 .card footer{padding:12px 18px;border-top:1px solid var(--line);display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
+/* Cắt hình */
+.card.wide{max-width:1100px;height:86vh;max-height:none}
+.crop-for{font-size:13px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.cropbody{flex:1;display:grid;grid-template-columns:110px 1fr 260px;min-height:0}
+.thumbs{border-right:1px solid var(--line);overflow:auto;padding:10px;display:flex;flex-direction:column;gap:8px}
+.thumbs img{width:100%;border-radius:8px;border:2px solid transparent;cursor:pointer;transition:.2s;box-shadow:0 2px 6px rgba(0,0,0,.12)}
+.thumbs img.on{border-color:var(--wine)}
+.cropstage{position:relative;overflow:auto;background:#f3eef1;display:grid;place-items:start center;padding:14px;min-height:0}
+#cropCv{cursor:crosshair;max-width:100%;box-shadow:0 4px 16px rgba(0,0,0,.15);touch-action:none}
+.sel{position:absolute;border:2px solid var(--wine);background:rgba(138,28,43,.08);box-shadow:0 0 0 9999px rgba(30,5,10,.25);pointer-events:none;border-radius:2px}
+.empty{position:absolute;inset:0;display:grid;place-items:center;text-align:center;color:var(--muted);line-height:1.8;pointer-events:none}
+.cropside{border-left:1px solid var(--line);padding:14px;display:flex;flex-direction:column;gap:14px;font-size:14px}
+.outprev{border:1px dashed var(--line);border-radius:10px;min-height:150px;display:grid;place-items:center;padding:8px;background:#fff;text-align:center;color:var(--muted);font-size:13px}
+.outprev img{max-width:100%;max-height:300px}
+.cropside .row{display:flex;gap:8px;align-items:center}
+.cropside .col{display:flex;flex-direction:column;gap:6px}
+#btnImgs b{background:var(--wine);color:#fff;border-radius:999px;padding:0 7px;font-size:12px}
+@media (max-width:860px){.cropbody{grid-template-columns:1fr}.thumbs{flex-direction:row;border:0}.thumbs img{width:70px}}
 /* Thông báo */
 .toast{position:fixed;left:50%;bottom:28px;transform:translate(-50%,30px);opacity:0;background:var(--ink);color:#fff;padding:12px 18px;border-radius:12px;font-size:14px;font-weight:600;z-index:30;transition:all .35s cubic-bezier(.2,.9,.3,1.2);display:flex;gap:10px;align-items:center}
 .toast.show{opacity:1;transform:translate(-50%,0)}
@@ -129,6 +155,7 @@ svg.vf{overflow:visible}
   <main class="main">
     <section class="panel">
       <div class="ph"><h2>Nội dung đề</h2><div class="spacer"></div>
+        <button class="btn btn-soft" id="btnImgs" title="Ảnh chụp đề hoặc ảnh chụp màn hình PDF, dùng để cắt hình. Có thể dán bằng Ctrl+V">Ảnh đề <b id="imgN">0</b></button>
         <button class="btn btn-soft" id="btnSample">Đề mẫu</button>
         <button class="btn btn-soft" id="btnClear">Xoá</button></div>
       <textarea id="src" spellcheck="false" aria-label="Nội dung đề"></textarea>
@@ -149,41 +176,68 @@ svg.vf{overflow:visible}
     <footer><button class="btn btn-soft" id="btnClose">Đóng</button><button class="btn btn-main" style="background:var(--wine);color:#fff" id="btnCopy">Copy prompt</button></footer>
   </div>
 </div>
+<div class="modal" id="cropModal" hidden>
+  <div class="card wide" role="dialog" aria-labelledby="ct">
+    <header><h3 id="ct">Cắt hình từ ảnh đề</h3><span class="crop-for" id="cropFor"></span></header>
+    <div class="cropbody">
+      <div class="thumbs" id="thumbs"></div>
+      <div class="cropstage" id="cropStage"><canvas id="cropCv"></canvas><div class="sel" id="sel" hidden></div>
+        <div class="empty" id="cropEmpty">Chưa có ảnh đề.<br>Bấm <b>Thêm ảnh đề</b>, hoặc chụp màn hình rồi <b>Ctrl+V</b> vào đây.</div></div>
+      <div class="cropside">
+        <div class="outprev"><img id="outImg" alt=""><span id="outHint">Kéo chuột khoanh vùng hình trên ảnh đề</span></div>
+        <label class="row"><input type="checkbox" id="optClean" checked> Làm sạch nền, tăng nét</label>
+        <label class="col">Rộng trong Word: <b><span id="wcmV">8</span> cm</b><input type="range" id="wcm" min="2" max="16.75" step="0.25" value="8"></label>
+      </div>
+    </div>
+    <footer><button class="btn btn-soft" id="cAdd">Thêm ảnh đề</button><button class="btn btn-soft" id="cOwn">Dùng ảnh có sẵn…</button><button class="btn btn-soft" id="cDel">Bỏ hình đã cắt</button>
+      <span style="flex:1"></span><button class="btn btn-soft" id="cCancel">Huỷ</button><button class="btn btn-main" style="background:var(--wine);color:#fff" id="cSave">Chèn vào đề</button></footer>
+  </div>
+</div>
+<input type="file" id="fileSrc" accept="image/*" multiple hidden><input type="file" id="fileOwn" accept="image/*" hidden>
 <div class="toast" id="toast"></div>
 
 <script>
 "use strict";
 /* ================= PROMPT CHO AI ================= */
-const PROMPT = `Bạn là người chép lại đề Hoá. Đọc ảnh/PDF đề tôi gửi và CHÉP LẠI NỘI DUNG theo khuôn bên dưới, trả về trong MỘT khối code duy nhất. Không giải đề, không trình bày Word, không giải thích.
+const PROMPT = `Bạn là người CHÉP LẠI đề Hoá. Đọc ảnh/PDF đề tôi gửi và chép lại TOÀN BỘ nội dung theo khuôn bên dưới, trả về trong MỘT khối code duy nhất. Không giải đề, không trình bày Word, không giải thích, không dùng LaTeX hay Markdown nào khác ngoài các ký hiệu được liệt kê.
 
-GIỮ: tên PHẦN và hướng dẫn làm bài; Câu n; toàn bộ câu hỏi, dữ kiện, số liệu, bảng, bước thí nghiệm, nhận định a/b/c/d, đáp án A/B/C/D; điểm số tự luận; dữ kiện chung trước Câu 1 (nguyên tử khối...).
+GIỮ: tên PHẦN và hướng dẫn làm bài; Câu n (đánh số như đề, mỗi PHẦN có thể đánh lại từ 1); toàn bộ câu hỏi, dữ kiện, số liệu, bảng, các bước thí nghiệm, nhận định a/b/c/d, đáp án A/B/C/D; điểm số tự luận; dữ kiện chung trước Câu 1 (nguyên tử khối...).
 BỎ: tên trường, logo, mã đề, SBD, thời gian, năm học, header/footer, số trang, quảng cáo, chữ viết tay, dấu khoanh/tick, nháp.
-Ghép câu bị cắt qua trang. Không sửa nội dung theo kiến thức (đề có thể cố ý sai). Chỗ không đọc chắc ghi [KHÔNG ĐỌC RÕ], không đoán dấu, số mũ, điện tích.
+Ghép câu bị cắt qua trang/ảnh thành một dòng. Không sửa nội dung theo kiến thức (đề có thể cố ý sai). Chỗ không đọc chắc ghi [KHÔNG ĐỌC RÕ], không đoán dấu âm, số mũ, điện tích, chỉ số.
 
-KHUÔN (mỗi mục một dòng):
+KHUÔN — mỗi mục MỘT dòng:
 PHẦN I. <tên phần>
 HD: <hướng dẫn của phần>
-Câu 1: <thân câu>          (tự luận: Câu 1 (3,0 điểm): <thân câu>)
-<dòng tiếp của câu, nếu có>
-A. <đáp án>   B. ...   C. ...   D. ...   (mỗi đáp án một dòng)
-a) <nhận định>   (PHẦN đúng/sai, mỗi ý một dòng)
-1.1. <mục nhỏ tự luận>   |   Bước 1: <bước thí nghiệm>
-PT: <phương trình riêng một dòng>
-[HÌNH: <loại hình> | <mô tả ngắn, nhãn trong hình>]
-[HÌNH-CT: <SMILES>]   (riêng công thức cấu tạo, đọc đúng nguyên tử và liên kết)
-| tiêu đề 1 | tiêu đề 2 |   (bảng: mỗi hàng một dòng, hàng đầu là tiêu đề)
+Câu 1: <thân câu>            tự luận có điểm: Câu 1 (3,0 điểm): <thân câu>
+<dòng tiếp theo của câu>
+A. <đáp án>                  B., C., D. mỗi đáp án một dòng riêng
+a) <nhận định>               mỗi ý một dòng
+1.1. <mục tự luận>           Bước 1: <bước thí nghiệm>
+PT: <phương trình>           mỗi phương trình đứng riêng một dòng PT:
+| tiêu đề 1 | tiêu đề 2 |    bảng: mỗi hàng một dòng, hàng đầu là tiêu đề, ô trống để trống
+
+HÌNH — đặt đúng chỗ hình xuất hiện trong câu, mỗi hình một dòng:
+[HÌNH-CT: <SMILES>]          công thức cấu tạo của MỘT chất; đọc đủ nguyên tử, bậc liên kết, nêm lập thể
+[ĐỒ THỊ: x: <tên trục x> | y: <tên trục y> | <tên đường>: (x; y) (x; y) ... | kiểu: đường]
+                             kiểu là đường, điểm, đường+điểm, cong hoặc cột; nhiều đường thì thêm nhiều đoạn "<tên>: (...)"
+[PHỔ MS: (m/z; cường độ) (m/z; cường độ) ...]
+[PHỔ IR: 3300 O–H; 1715 C=O; ...]   số sóng và nhãn của từng đỉnh đề ghi
+[HÌNH: <loại hình> | <mô tả ngắn và các nhãn trong hình>]   mọi hình còn lại: dụng cụ, sơ đồ, mắt xích polymer, công thức chiếu, ký hiệu...
+Chỉ dùng ĐỒ THỊ/PHỔ khi đọc được số liệu rõ; không đọc được thì dùng [HÌNH: ...]. Không tự bịa số liệu.
 
 KÝ HIỆU TRONG DÒNG:
-Chỉ số dưới: H_2SO_4, C_6H_{12}O_6   ·   Chỉ số trên: Fe^{3+}, cm^{-1}, 70^oC, t^o (độ dùng chữ o, không dùng ° hay 0)
-Ion có cả dưới và trên: SO_4^{2-}, NH_4^+, Cr_2O_7^{2-}   ·   Hạt nhân: ^{235}_{92}U
-Mũi tên: -->  <--  <=> (thuận nghịch)  ;  có điều kiện: -[t^o, xt]->  hoặc  -[trên|dưới]->  ;  <=[trên|dưới]=>
-Nghiêng (ghi chú, giả thiết): *nội dung*   ·   Đậm: **nội dung**
-Δ_rH^o_{298}: viết đúng như vậy.
+Chỉ số dưới: H_2SO_4, C_6H_{12}O_6        Chỉ số trên: Fe^{3+}, cm^{-1}, 10^{-3}
+Độ: 70^oC, t^o (dùng chữ o, không dùng ° hay số 0)
+Ion có cả dưới và trên: SO_4^{2-}, NH_4^+, Cr_2O_7^{2-}       Hạt nhân: ^{235}_{92}U
+Chỉ số lồng nhau dùng ngoặc nhọn: E^o_{Zn^{2+}/Zn}, Δ_rH^o_{298}
+Mũi tên: -->   <--   <=> (thuận nghịch)
+Có điều kiện: -[t^o, xt]->   hoặc   -[trên|dưới]->   ;   thuận nghịch: <=[trên|dưới]=>
+Nghiêng (ghi chú, giả thiết): *nội dung*     Đậm: **nội dung**     Dấu nhân: ×
 
-Cuối khối code, sau dòng ---, liệt kê ngắn các vị trí [KHÔNG ĐỌC RÕ] nếu có.`;
+Cuối khối code, sau một dòng ---, liệt kê ngắn các vị trí [KHÔNG ĐỌC RÕ] nếu có.`;
 
 /* ================= ĐỀ MẪU ================= */
-const SAMPLE = `Cho nguyên tử khối: H = 1; C = 12; O = 16; S = 32; Fe = 56.
+const SAMPLE = `Cho nguyên tử khối: H = 1; C = 12; O = 16; Ca = 40.
 PHẦN I. Câu trắc nghiệm nhiều phương án lựa chọn
 HD: Thí sinh trả lời từ câu 1 đến câu 3. Mỗi câu hỏi thí sinh chỉ chọn một phương án.
 Câu 1: Chất nào sau đây là chất điện li mạnh?
@@ -191,33 +245,39 @@ A. CH_3COOH
 B. NaCl
 C. C_2H_5OH
 D. H_2O
-Câu 2: Trong dung dịch, ion nào sau đây kết hợp với Ba^{2+} tạo kết tủa trắng?
+Câu 2: Cho biết: E^o_{Zn^{2+}/Zn} = –0,763 V; E^o_{Cu^{2+}/Cu} = +0,340 V. Ion nào sau đây kết hợp với Ba^{2+} tạo kết tủa trắng?
 A. SO_4^{2-}
 B. NH_4^+
 C. NO_3^-
 D. Cl^-
-Câu 3: Đun nóng ethanol với dung dịch H_2SO_4 đặc ở 170^oC thu được khí X. Phát biểu nào sau đây đúng về khí X?
-A. X làm mất màu nước bromine.
-B. X không cháy trong không khí.
-C. X tan rất tốt trong nước ở điều kiện thường.
-D. X có công thức phân tử là C_2H_6.
+Câu 3: Phổ khối lượng (MS) của chất X cho các tín hiệu như hình dưới đây:
+[PHỔ MS: (15; 22) (29; 100) (31; 38) (45; 12) (46; 30)]
+Phân tử khối của X là
+A. 29.
+B. 31.
+C. 45.
+D. 46.
 PHẦN II. Câu trắc nghiệm đúng sai
 HD: Thí sinh trả lời câu 1. Trong mỗi ý a), b), c), d) ở mỗi câu, thí sinh chọn đúng hoặc sai.
 Câu 1: Cho cân bằng hoá học sau trong bình kín:
 PT: N_2(g) + 3H_2(g) <=[t^o, xt, p|]=> 2NH_3(g)        Δ_rH^o_{298} = –92 kJ
+Sự phụ thuộc của hiệu suất tổng hợp NH_3 vào áp suất ở hai nhiệt độ được biểu diễn như sau:
+[ĐỒ THỊ: x: Áp suất (bar) | y: Hiệu suất (%) | 400^oC: (100; 25) (200; 36) (300; 47) (400; 53) | 500^oC: (100; 10) (200; 18) (300; 26) (400; 32) | kiểu: đường+điểm]
 a) Khi tăng nhiệt độ, cân bằng chuyển dịch theo chiều nghịch.
 b) Khi tăng áp suất chung của hệ, cân bằng chuyển dịch theo chiều thuận.
 c) Thêm chất xúc tác làm tăng hiệu suất tạo NH_3.
 d) Phản ứng thuận là phản ứng toả nhiệt.
 PHẦN III. Câu tự luận
 Câu 1 (2,0 điểm):
-1.1. Viết phương trình hoá học của phản ứng điều chế khí X từ ethanol:
+1.1. Viết phương trình hoá học điều chế khí X từ ethanol:
 PT: C_2H_5OH -[H_2SO_4 đặc, 170^oC]-> CH_2=CH_2 + H_2O
-1.2. Cho bảng số liệu thí nghiệm sau:
-| Thí nghiệm | Thể tích ethanol (mL) | Thể tích khí X (mL, đkc) |
-| 1 | 5,0 | 1 240 |
-| 2 | 10,0 | [KHÔNG ĐỌC RÕ] |
-Tính hiệu suất phản ứng ở thí nghiệm 1. *(Biết khối lượng riêng của ethanol là 0,8 g/mL.)*
+1.2. Chất Y có công thức cấu tạo và phổ hồng ngoại như sau:
+[HÌNH-CT: OC(=O)c1ccc(C(=O)OCC)cc1]
+[PHỔ IR: 3300 O–H; 1715 C=O; 1280 C–O]
+Kết quả chuẩn độ được ghi trong bảng sau:
+|  | Lần 1 | Lần 2 | Lần 3 |
+| Thể tích NaOH (mL) | 3,9 | 4,1 | [KHÔNG ĐỌC RÕ] |
+Tính hàm lượng CaCO_3 trong mẫu. *(Biết các tạp chất không phản ứng với HCl.)*
 [HÌNH: dụng cụ | bộ điều chế ethylene: bình cầu, đèn cồn, bình đựng dung dịch Y, ống nghiệm nước Br_2]`;
 
 /* ================= LÕI CÔNG THỨC (theo iu iu: row/run/script/arrow) ================= */
@@ -281,10 +341,106 @@ function vfSVG(doc){
   return {svg,W,H,descent:L.desc+pad};
 }
 
+/* ================= CÔNG THỨC CẤU TẠO (OpenChemLib) ================= */
+const ctCache={};
+function ctSVG(smiles){
+  smiles=smiles.trim();if(ctCache[smiles]!==undefined)return ctCache[smiles];
+  let r=null;
+  try{if(typeof OCL!=="undefined"){const m=OCL.Molecule.fromSmiles(smiles);m.inventCoordinates();
+    const n=m.getAllAtoms();if(!n)throw new Error("rỗng");
+    let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9;for(let i=0;i<n;i++){const x=m.getAtomX(i),y=m.getAtomY(i);x0=Math.min(x0,x);x1=Math.max(x1,x);y0=Math.min(y0,y);y1=Math.max(y1,y)}
+    const bl=m.getAverageBondLength()||1,BL=24; // độ dài liên kết cố định ≈ 0,64 cm, mọi hình cùng tỉ lệ
+    const bw=Math.round((x1-x0)/bl*BL+90),bh=Math.round((y1-y0)/bl*BL+60);
+    let svg=m.toSVG(bw,bh,"ct"+Math.random().toString(36).slice(2,8),{autoCrop:true,autoCropMargin:5,suppressChiralText:true,noStereoProblem:true,suppressCIPParity:true,suppressESR:true,noColorOnESRAndCIP:true});
+    svg=svg.replace(/<style>[\s\S]*?<\/style>/,"<style>text{font-family:'Times New Roman',Times,serif}line{stroke-linecap:round}polygon{stroke-linejoin:round}</style>")
+      .replace(/<[a-z]+[^>]*class="event"[^>]*\/>/g,"")
+      .replace(/(fill|stroke)="rgb\([^)]*\)"/g,'$1="#000"')
+      .replace(/stroke-width="([\d.]+)"/g,(m0,v)=>`stroke-width="${(+v*.62).toFixed(2)}"`);
+    const w=+svg.match(/width="([\d.]+)px"/)[1],h=+svg.match(/height="([\d.]+)px"/)[1];
+    let W=w*.75,H=h*.75;const k=Math.min(1,470/W);W*=k;H*=k;
+    svg=svg.replace(/width="[\d.]+px" height="[\d.]+px"/,`width="${W.toFixed(1)}pt" height="${H.toFixed(1)}pt"`);
+    r={svg,W,H}}}catch(e){r=null}
+  ctCache[smiles]=r;return r;
+}
+
+/* ================= ĐỒ THỊ & PHỔ ================= */
+const numVN=t=>parseFloat(String(t).trim().replace(/[−–]/g,"-").replace(/\s/g,"").replace(",","."));
+const fmtVN=v=>{const r=Math.abs(v)<1e-9?0:+v.toPrecision(6);return String(r).replace(".",",")};
+function niceTicks(a,b,n){const span=b-a||1,raw=span/(n||5),mag=Math.pow(10,Math.floor(Math.log10(raw))),f=raw/mag;
+  const st=(f<1.5?1:f<3?2:f<7?5:10)*mag;const out=[];for(let v=Math.ceil(a/st-1e-9)*st;v<=b+1e-9;v+=st)out.push(+v.toFixed(10));return {ticks:out,step:st}}
+function richSVG(str,x,y,pt,anchor,extra=""){ // chữ có chỉ số trong SVG
+  const pcs=inline(str,true).filter(p=>p.k==="t");let w=0;pcs.forEach(p=>w+=textW(p.s,p.va?pt*.7:pt,p.i,p.b));
+  let sx=anchor==="middle"?x-w/2:anchor==="end"?x-w:x,o="",cur=0;
+  for(const p of pcs){const sh=p.va==="sub"?pt*.25:p.va==="sup"?-pt*.38:0,dy=sh-cur;cur=sh;
+    o+=`<tspan${dy?` dy="${dy.toFixed(2)}"`:""} font-size="${(p.va?pt*.7:pt).toFixed(2)}"${p.i?' font-style="italic"':""}${p.b?' font-weight="bold"':""}>${esc(p.s)}</tspan>`}
+  return `<text x="${sx.toFixed(2)}" y="${y.toFixed(2)}" ${extra}>${o}</text>`}
+function plotSVG(spec){
+  const W=spec.W||300,H=spec.H||190,ml=48,mr=14,mt=spec.mt||14,mb=40,pw=W-ml-mr,ph=H-mt-mb,fs=9.5,ts=10.5;
+  const all=spec.series.flatMap(s=>s.pts);if(!all.length)return null;
+  let xmin=spec.xmin??Math.min(...all.map(p=>p[0])),xmax=spec.xmax??Math.max(...all.map(p=>p[0]));
+  let ymin=spec.ymin??Math.min(0,...all.map(p=>p[1])),ymax=spec.ymax??Math.max(...all.map(p=>p[1]));
+  if(xmin===xmax){xmin-=1;xmax+=1}if(ymin===ymax){ymax+=1}
+  const xt=niceTicks(xmin,xmax,6),yt=niceTicks(ymin,ymax,5);
+  if(spec.xmin===undefined){xmin=Math.min(xmin,xt.ticks[0]);xmax=Math.max(xmax,xt.ticks[xt.ticks.length-1])}
+  if(spec.ymax===undefined){ymax=yt.ticks[yt.ticks.length-1]<ymax?ymax+yt.step:yt.ticks[yt.ticks.length-1];if(spec.headroom)ymax+=yt.step}
+  const yT=niceTicks(ymin,ymax,5).ticks;
+  const X=v=>ml+(spec.xrev?(xmax-v):(v-xmin))/(xmax-xmin)*pw,Y=v=>mt+ph-(v-ymin)/(ymax-ymin)*ph;
+  let o=`<g stroke="#000" stroke-width="0.8" fill="none"><line x1="${ml}" y1="${mt+ph}" x2="${ml+pw}" y2="${mt+ph}"/><line x1="${ml}" y1="${mt}" x2="${ml}" y2="${mt+ph}"/>`;
+  const xs=niceTicks(Math.min(xmin,xmax),Math.max(xmin,xmax),6).ticks;
+  xs.forEach(v=>o+=`<line x1="${X(v).toFixed(2)}" y1="${mt+ph}" x2="${X(v).toFixed(2)}" y2="${mt+ph+3}"/>`);
+  yT.forEach(v=>o+=`<line x1="${ml-3}" y1="${Y(v).toFixed(2)}" x2="${ml}" y2="${Y(v).toFixed(2)}"/>`);o+="</g>";
+  o+=`<g fill="#000">`;xs.forEach(v=>o+=richSVG(fmtVN(v),X(v),mt+ph+3+fs,fs,"middle"));yT.forEach(v=>o+=richSVG(fmtVN(v),ml-5,Y(v)+fs*.33,fs,"end"));
+  o+=richSVG(spec.xl||"",ml+pw/2,H-6,ts,"middle");
+  if(spec.yl){const cy=mt+ph/2;o+=`<g transform="rotate(-90 ${11} ${cy.toFixed(2)})">${richSVG(spec.yl,11,cy+ts*.33,ts,"middle")}</g>`}o+="</g>";
+  const dashes=["","4 2.5","1.2 2","6 2 1.5 2"];
+  spec.series.forEach((s,si)=>{const pts=[...s.pts];const kind=s.kind||spec.kind||"đường";const da=dashes[si%4];
+    if(kind==="que"||kind==="cột"){pts.forEach(p=>{const x=X(p[0]);if(kind==="que")o+=`<line x1="${x.toFixed(2)}" y1="${Y(Math.max(0,ymin)).toFixed(2)}" x2="${x.toFixed(2)}" y2="${Y(p[1]).toFixed(2)}" stroke="#000" stroke-width="1.3"/>`;
+        else{const bw=Math.max(4,pw/pts.length*.5);o+=`<rect x="${(x-bw/2).toFixed(2)}" y="${Y(p[1]).toFixed(2)}" width="${bw.toFixed(2)}" height="${(Y(Math.max(0,ymin))-Y(p[1])).toFixed(2)}" fill="${si?"#fff":"#bdbdbd"}" stroke="#000" stroke-width=".7"/>`}
+        if(spec.valueLabels)o+=richSVG(spec.valueLabels(p),x,Y(p[1])-3,8.5,"middle",'fill="#000"')})}
+    else{if(kind!=="điểm"){if(spec.smooth)o+=`<path d="${smoothPath(pts.map(p=>[X(p[0]),Y(p[1])]))}" fill="none" stroke="#000" stroke-width="1"${da?` stroke-dasharray="${da}"`:""}/>`;
+        else o+=`<polyline points="${pts.map(p=>X(p[0]).toFixed(2)+","+Y(p[1]).toFixed(2)).join(" ")}" fill="none" stroke="#000" stroke-width="1" stroke-linejoin="round"${da?` stroke-dasharray="${da}"`:""}/>`}
+      if(kind==="điểm"||kind==="đường+điểm")pts.forEach(p=>o+=si%2?`<rect x="${(X(p[0])-2).toFixed(2)}" y="${(Y(p[1])-2).toFixed(2)}" width="4" height="4" fill="#fff" stroke="#000" stroke-width=".8"/>`:`<circle cx="${X(p[0]).toFixed(2)}" cy="${Y(p[1]).toFixed(2)}" r="2" fill="#000"/>`)}});
+  (spec.notes||[]).forEach(n=>o+=richSVG(n.text,X(n.x),Y(n.y)+(n.dy||0),8.5,"middle",'fill="#000"'));
+  const named=spec.series.filter(s=>s.name);
+  if(named.length>1||(named.length===1&&spec.series.length>1)){let ly=mt+4;named.forEach(s=>{const si=spec.series.indexOf(s),da=dashes[si%4];
+    o+=`<line x1="${ml+pw-70}" y1="${ly+3}" x2="${ml+pw-52}" y2="${ly+3}" stroke="#000" stroke-width="1"${da?` stroke-dasharray="${da}"`:""}/>`+richSVG(s.name,ml+pw-48,ly+6,8.5,"start",'fill="#000"');ly+=12})}
+  return {svg:`<svg xmlns="http://www.w3.org/2000/svg" width="${W}pt" height="${H}pt" viewBox="0 0 ${W} ${H}" font-family="Times New Roman, Times, serif">${o}</svg>`,W,H}}
+function smoothPath(P){if(P.length<3)return "M"+P.map(p=>p.join(" ")).join(" L");let d=`M${P[0][0].toFixed(2)} ${P[0][1].toFixed(2)}`;
+  for(let i=0;i<P.length-1;i++){const p0=P[i-1]||P[i],p1=P[i],p2=P[i+1],p3=P[i+2]||p2;
+    d+=` C${(p1[0]+(p2[0]-p0[0])/6).toFixed(2)} ${(p1[1]+(p2[1]-p0[1])/6).toFixed(2)} ${(p2[0]-(p3[0]-p1[0])/6).toFixed(2)} ${(p2[1]-(p3[1]-p1[1])/6).toFixed(2)} ${p2[0].toFixed(2)} ${p2[1].toFixed(2)}`}return d}
+function parsePts(t){const pts=[];t.replace(/\(\s*([-−–]?[\d.,]+)\s*;\s*([-−–]?[\d.,]+)\s*\)/g,(m,a,b)=>{pts.push([numVN(a),numVN(b)])});return pts}
+function graphSpec(kind,text){
+  const segs=text.split("|").map(x=>x.trim()).filter(Boolean);
+  if(kind==="ms"){let xl="m/z",yl="Cường độ tương đối (%)",pts=[];segs.forEach(g=>{let m;if(m=g.match(/^x\s*:\s*(.*)$/i))xl=m[1];else if(m=g.match(/^y\s*:\s*(.*)$/i))yl=m[1];else pts.push(...parsePts(g))});
+    if(!pts.length)return null;const xs=pts.map(p=>p[0]),pad=Math.max(1,(Math.max(...xs)-Math.min(...xs))*.08);
+    return {xl,yl,kind:"que",series:[{pts}],xmin:Math.floor(Math.min(...xs)-pad),xmax:Math.ceil(Math.max(...xs)+pad),ymin:0,ymax:100,mt:18,valueLabels:p=>fmtVN(p[0])}}
+  if(kind==="ir"){let xl="Số sóng (cm^{-1})",yl="Độ truyền qua (%)",peaks=[];
+    segs.join(";").split(";").forEach(g=>{g=g.trim();let m;if(m=g.match(/^x\s*:\s*(.*)$/i))xl=m[1];else if(m=g.match(/^y\s*:\s*(.*)$/i))yl=m[1];
+      else if(m=g.match(/^(\d{3,4})\s*(.*)$/)){const lab=m[2].trim();const broad=/O\s*[–\-]\s*H|N\s*[–\-]\s*H|rộng/i.test(lab)&&+m[1]>2500;peaks.push({x:+m[1],lab:lab.replace(/\(?rộng\)?/i,"").trim(),w:broad?180:22,d:broad?55:68})}});
+    if(!peaks.length)return null;const pts=[];
+    for(let x=4000;x>=400;x-=6){let t=94;peaks.forEach(p=>{t-=p.d*Math.exp(-Math.pow((x-p.x)/p.w,2))});pts.push([x,Math.max(4,t)])}
+    return {xl,yl,series:[{pts}],xrev:true,xmin:400,xmax:4000,ymin:0,ymax:100,W:330,smooth:false,
+      notes:peaks.filter(p=>p.lab).map(p=>({x:p.x,y:Math.max(4,94-p.d)-10,text:p.lab}))}}
+  // đồ thị số liệu chung
+  let xl="",yl="",kindAll="đường",series=[],sm=false;
+  segs.forEach(g=>{let m;
+    if(m=g.match(/^x\s*:\s*(.*)$/i))xl=m[1];else if(m=g.match(/^y\s*:\s*(.*)$/i))yl=m[1];
+    else if(m=g.match(/^kiểu\s*:\s*(.*)$/i)){kindAll=m[1].trim().toLowerCase();if(kindAll==="cong"){sm=true;kindAll="đường"}}
+    else{const pts=parsePts(g);if(pts.length){const nm=(g.match(/^([^(]+?)\s*:/)||[])[1];series.push({name:nm||"",pts})}}});
+  if(!series.length)return null;
+  series.forEach(s=>{if(kindAll!=="cột"&&kindAll!=="que")s.pts.sort((a,b)=>a[0]-b[0])});
+  return {xl,yl,kind:kindAll,series,smooth:sm}}
+const plotCache={};
+function figureOf(b){ // trả về {svg,W,H} hoặc {png,W,H} hoặc null
+  const key=b.key;if(figStore[key])return figStore[key];
+  if(b.kind==="ct")return ctSVG(b.text);
+  if(b.kind==="plot"||b.kind==="ms"||b.kind==="ir"){const k=b.kind+"|"+b.text;if(plotCache[k]===undefined){const sp=graphSpec(b.kind,b.text);plotCache[k]=sp?plotSVG(sp):null}return plotCache[k]}
+  return null}
+
 /* ================= ĐỌC KÝ HIỆU TRONG DÒNG ================= */
 // Trả về danh sách mẩu: {k:"t",s,b,i,va} | {k:"f",doc}
 function grp(s,i){ // đọc nhóm sau _ hoặc ^ : {..} hoặc 1 ký tự (kèm dấu +/- cho ^)
-  if(s[i]==="{"){const j=s.indexOf("}",i);if(j<0)return [s.slice(i+1),s.length];return [s.slice(i+1,j),j+1]}
+  if(s[i]==="{"){let d=0;for(let j=i;j<s.length;j++){if(s[j]==="{")d++;else if(s[j]==="}"&&--d===0)return [s.slice(i+1,j),j+1]}return [s.slice(i+1),s.length]}
   let m=s.slice(i).match(/^(\d+[+\-–]?|[+\-–]|o|[A-Za-z0-9])/);return m?[m[1],i+m[1].length]:["",i];
 }
 const isChemWord=w=>/[A-Z]/.test(w)&&/^[A-Za-z0-9()\[\]·.]+$/.test(w);
@@ -323,7 +479,8 @@ function inline(s,inArrow){
       if(b2){[g2,k]=grp(s,j+1)}
       g1=g1.replace(/-/g,"–").replace(/–/g,"−");g2=g2.replace(/-/g,"–").replace(/–/g,"−");
       const sub=a==="_"?g1:g2,sup=a==="^"?g1:g2;
-      if(b2&&!inArrow){ // chỉ số xếp chồng → công thức iu iu
+      const nested=/[_^]/.test(g1+g2);
+      if((b2||nested)&&!inArrow){ // chỉ số xếp chồng → công thức iu iu
         // bên trái (hạt nhân) nếu ngay sau là chữ cái và trước là khoảng trắng/đầu
         const before=buf.match(/[A-Za-z)\]]$/);
         if(!before){const m=s.slice(k).match(/^([A-Z][a-z]?)/);
@@ -341,7 +498,7 @@ function inline(s,inArrow){
         const mb=word.match(/^(.*?)([A-Z][a-z]?|[)\]])$/);
         const pre=mb?mb[1]:"",base=mb?mb[2]:word;
         if(pre)nodes.push(VF.run(pre));
-        nodes.push(VF.script(VF.run(base),VF.run(sup,"text"),VF.run(sub,"text")));
+        nodes.push(VF.script(VF.run(base),sup?textToVF(sup):null,sub?textToVF(sub):null));
         out.push({k:"f",doc:VF.doc(VF.row(nodes))});i=k;continue;
       }
       flush();out.push({k:"t",s:g1.replace(/^o$/,"o"),b:bold,i:false,va:a==="_"?"sub":"sup"});i=j;continue;
@@ -353,6 +510,7 @@ function inline(s,inArrow){
 
 /* ================= ĐỌC CẤU TRÚC ĐỀ ================= */
 function parse(src){
+  const figSeen={};
   const lines=src.replace(/\r/g,"").split("\n");const blocks=[];let inQ=false,essay=false,table=null,afterTable=false;
   const push=b=>{if(afterTable){b.after=true;afterTable=false}blocks.push(b)};
   for(let raw of lines){
@@ -371,7 +529,8 @@ function parse(src){
       push({type:"ans",items:ans});continue}
     if(inQ&&(m=line.match(/^([B-D])[.)]\s+(.*)$/))){const last=blocks[blocks.length-1];if(last&&last.type==="ans"){last.items.push(m[2]);continue}}
     if(m=line.match(/^PT:\s*(.*)$/)){push({type:"eq",text:m[1]});continue}
-    if(m=line.match(/^\[HÌNH(-CT)?\s*:?\s*([^\]]*)\]$/)){push({type:"fig",ct:!!m[1],text:m[2]});continue}
+    if(m=line.match(/^\[(HÌNH-CT|HÌNH|ĐỒ THỊ|PHỔ MS|PHỔ IR)\s*:?\s*(.*)\]$/i)){const K={"HÌNH-CT":"ct","HÌNH":"hinh","ĐỒ THỊ":"plot","PHỔ MS":"ms","PHỔ IR":"ir"}[m[1].toUpperCase()];
+      const base=K+":"+m[2].trim();figSeen[base]=(figSeen[base]||0)+1;push({type:"fig",kind:K,ct:K==="ct",text:m[2].trim(),key:base+"#"+figSeen[base]});continue}
     if(inQ&&(m=line.match(/^([a-e]\))\s+(.*)$/))){push({type:"lab",label:m[1],text:m[2]});continue}
     if(inQ&&(m=line.match(/^((?:Bước|Tác động)\s+\d+\s*[:.])\s*(.*)$/))){push({type:"lab",label:m[1],text:m[2]});continue}
     if(inQ&&(m=line.match(/^(\d+(?:\.\d+)*\.)\s+(.*)$/))){push({type:"lab",label:m[1],text:m[2]});continue}
@@ -396,9 +555,9 @@ function htmlPieces(pcs){return pcs.map(p=>{
   if(p.k==="f"){const r=vfSVG(p.doc);return r.svg.replace("<svg ",`<svg style="vertical-align:-${r.descent.toFixed(2)}pt" `)}
   let t=esc(p.s);if(p.va)t=`<${p.va}>${t}</${p.va}>`;if(p.b)t=`<b>${t}</b>`;if(p.i)t=`<i>${t}</i>`;if(p.unclear)t=`<span class="unclear">${t}</span>`;return t}).join("")}
 const H=t=>htmlPieces(inline(t));
-let qCount=0,fCount=0,figCount=0,unclear=0;
+let qCount=0,fCount=0,figCount=0,unclear=0,figBad=0;const figStore={};
 function render(){
-  const blocks=parse(src.value);let html="";qCount=0;fCount=0;figCount=0;unclear=(src.value.match(/\[KHÔNG ĐỌC RÕ\]/g)||[]).length;
+  const blocks=parse(src.value);let html="";qCount=0;fCount=0;figCount=0;figBad=0;unclear=(src.value.match(/\[KHÔNG ĐỌC RÕ\]/g)||[]).length;
   src.value.replace(/<=\[|-\[|<=>|<-->|-->|<--|[A-Za-z)\]][_^]\S*?[_^]/g,()=>{fCount++});
   let d=0;const A=()=>` style="animation-delay:${Math.min(d++*25,600)}ms"`;
   for(const b of blocks){
@@ -411,16 +570,21 @@ function render(){
       case"child":html+=`<p class="ind anim${ac}"${A()}>${H(b.text)}</p>`;break;
       case"lab":html+=`<p class="ind anim${ac}"${A()}><span class="lb">${esc(b.label)}</span> ${H(b.text)}</p>`;break;
       case"eq":html+=`<p class="eq anim${ac}"${A()}>${H(b.text)}</p>`;break;
-      case"fig":figCount++;html+=`<p class="fig anim${ac}"${A()}><span class="figbox">${b.ct?"Công thức cấu tạo":"Hình"}: ${H(b.text)}</span></p>`;break;
+      case"fig":{figCount++;const f=figureOf(b);const kd=esc(b.key);
+        const tip=b.kind==="hinh"||figStore[b.key]?' title="Bấm để cắt lại / đổi hình"':' title="Bấm để thay bằng hình cắt từ đề"';
+        if(f)html+=`<p class="fig figok anim${ac}"${A()} data-key="${kd}"${tip}>${f.png?`<img src="${f.png}" style="width:${CM(f.W).toFixed(2)}cm">`:f.svg}</p>`;
+        else{if(b.kind!=="hinh")figBad++;const lbl={ct:"Công thức cấu tạo – mã SMILES chưa đọc được",plot:"Đồ thị – chưa đọc được số liệu",ms:"Phổ MS – chưa đọc được số liệu",ir:"Phổ IR – chưa đọc được đỉnh",hinh:"Hình"}[b.kind];
+          html+=`<p class="fig anim${ac}"${A()} data-key="${kd}"${tip}><span class="figbox${b.kind!=="hinh"?" bad":""}">${lbl}: ${esc(b.text)}<em>Bấm để cắt hình từ ảnh đề</em></span></p>`}break}
       case"ans":{const L=ansLayout(b.items),c="ABCD";const cell=(t,k)=>`<span><span class="al">${c[k]}.</span> ${H(t)}</span>`;
         if(L===4)html+=`<div class="ans4 anim${ac}"${A()}>${b.items.map(cell).join("")}</div>`;
         else if(L===2)html+=`<div class="ans2 anim${ac}"${A()}>${cell(b.items[0],0)}${cell(b.items[1],1)}</div><div class="ans2 anim"${A()}>${cell(b.items[2],2)}${b.items[3]!==undefined?cell(b.items[3],3):""}</div>`;
         else html+=b.items.map((t,k)=>`<p class="ans1 anim"${A()}>${cell(t,k)}</p>`).join("");break}
-      case"table":{html+=`<table class="anim"${A()}>`+b.rows.map((r,ri)=>"<tr>"+r.map(c=>ri?`<td>${H(c)}</td>`:`<th>${H(c)}</th>`).join("")+"</tr>").join("")+"</table>";break}
+      case"table":{const cols=Math.max(...b.rows.map(r=>r.length)),need=Array(cols).fill(0);b.rows.forEach(r=>r.forEach((c,ci)=>{need[ci]=Math.max(need[ci],Math.max(1.2,CM(piecesW(inline(c)))+0.5))}));const sm=need.reduce((a,x)=>a+x,0);
+        html+=`<table class="anim"${A()} style="width:16.75cm;table-layout:fixed"><colgroup>${need.map(x=>`<col style="width:${(x/sm*16.75).toFixed(2)}cm">`).join("")}</colgroup>`+b.rows.map((r,ri)=>"<tr>"+r.map(c=>ri?`<td>${H(c)}</td>`:`<th>${H(c)}</th>`).join("")+"</tr>").join("")+"</table>";break}
     }
   }
   page.innerHTML=html||`<p style="color:#9b8f97;font-family:var(--ui);text-align:center;margin-top:3cm">Dán nội dung đề vào ô bên trái, bản xem trước hiện ở đây.</p>`;
-  chips.innerHTML=`<span class="chip">Câu <b>${qCount}</b></span><span class="chip">Công thức iu iu <b>${fCount}</b></span><span class="chip">Hình <b>${figCount}</b></span>`+
+  chips.innerHTML=`<span class="chip">Câu <b>${qCount}</b></span><span class="chip">Công thức iu iu <b>${fCount}</b></span><span class="chip">Hình <b>${figCount}</b></span>`+(figBad?`<span class="chip warn">Hình chưa dựng được <b>${figBad}</b></span>`:"")+
     (unclear?`<span class="chip warn">Chỗ không đọc rõ <b>${unclear}</b></span>`:"");
 }
 
@@ -465,13 +629,14 @@ async function buildDocx(){
   const blocks=parse(src.value);const media=[];let rid=10,pid=1;
   const runT=(p,extra="")=>{let r="";if(p.b)r+="<w:b/>";if(p.i)r+="<w:i/>";if(p.unclear)r+=`<w:highlight w:val="yellow"/>`;if(p.va)r+=`<w:vertAlign w:val="${p.va==="sub"?"subscript":"superscript"}"/>`;r+=extra;
     return `<w:r>${r?`<w:rPr>${r}</w:rPr>`:""}<w:t xml:space="preserve">${xe(p.s)}</w:t></w:r>`};
-  async function runF(doc){
-    const r=vfSVG(doc);const svgSolid=r.svg.replace('class="vf" ','');
-    const png=await svgToPng(svgSolid,r.W,r.H,12);const id="rId"+(rid++),name=`vf${media.length+1}.png`;
+  async function runF(doc){const r=vfSVG(doc);return imgRun(r.svg.replace('class="vf" ',''),r.W,r.H,r.descent,JSON.stringify(doc),12)}
+  async function imgRun(svgSolid,W,H,descent,descr,scale,blob){
+    const r={W,H,descent};
+    const png=blob||await svgToPng(svgSolid,r.W,r.H,scale);const id="rId"+(rid++),name=`vf${media.length+1}.png`;
     media.push({name,blob:png,id,svg:svgSolid});
     const cx=Math.round(r.W*12700),cy=Math.round(r.H*12700),pos=Math.round(r.descent*2);
-    const n=pid++;const json=xe(JSON.stringify(doc));
-    return `<w:r><w:rPr><w:position w:val="-${pos}"/></w:rPr><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="${cx}" cy="${cy}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="${n}" name="VF${n}" descr="${json}"/><wp:cNvGraphicFramePr><a:graphicFrameLocks xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" noChangeAspect="1"/></wp:cNvGraphicFramePr><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="${n}" name="${name}"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${id}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>`}
+    const n=pid++;const json=xe(descr);
+    return `<w:r>${pos?`<w:rPr><w:position w:val="-${pos}"/></w:rPr>`:""}<w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="${cx}" cy="${cy}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="${n}" name="VF${n}" descr="${json}"/><wp:cNvGraphicFramePr><a:graphicFrameLocks xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" noChangeAspect="1"/></wp:cNvGraphicFramePr><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="${n}" name="${name}"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${id}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>`}
   async function runs(text,extra=""){let o="";for(const p of inline(text)){o+=p.k==="f"?await runF(p.doc):runT(p,extra)}return o}
   const P=(style,body,ppr="",after=false)=>`<w:p><w:pPr><w:pStyle w:val="${style}"/>${after?`<w:spacing w:before="120"/>`:""}${ppr}</w:pPr>${body}</w:p>`;
   const lab=(t,color)=>`<w:r><w:rPr><w:b/>${color?`<w:color w:val="${color}"/>`:""}</w:rPr><w:t xml:space="preserve">${xe(t)}</w:t></w:r>`;
@@ -488,14 +653,17 @@ async function buildDocx(){
       case"lab":{const st=/^(Bước|Tác)/.test(b.label)?"ESSAY_STEP":/^\d/.test(b.label)?"ESSAY_ITEM":essay?"ESSAY_REQUEST":"QUESTION_CHILD";
         body+=P(st,lab(b.label+" ")+await runs(b.text),"",af);break}
       case"eq":body+=P("EQUATION_LINE",await runs(b.text),"",af);break;
-      case"fig":body+=P("FIGURE_CODE",`<w:r><w:rPr><w:highlight w:val="cyan"/></w:rPr><w:t xml:space="preserve">[CHÈN HÌNH THỦ CÔNG – ${xe(b.ct?"Công thức cấu tạo: ":"")}${xe(b.text.replace(/[_^{}]/g,""))}]</w:t></w:r>`,"",af);break;
+      case"fig":{const f=figureOf(b);
+        if(f&&f.png){body+=P("FIGURE_CODE",await imgRun(null,f.W,f.H,0,b.kind+": "+b.text,1,f.blob),"",af);break}
+        if(f){body+=P("FIGURE_CODE",await imgRun(f.svg,f.W,f.H,0,(b.kind==="ct"?"SMILES: ":b.kind+": ")+b.text,6),"",af);break}
+        body+=P("FIGURE_CODE",`<w:r><w:rPr><w:highlight w:val="cyan"/></w:rPr><w:t xml:space="preserve">[CHÈN HÌNH THỦ CÔNG – ${xe(b.text.replace(/[_^{}]/g,""))}]</w:t></w:r>`,"",af);break}
       case"ans":{const L=ansLayout(b.items),c="ABCD";const one=async k=>lab(c[k]+". ","0000FF")+await runs(b.items[k]);
         if(L===4){let s="";for(let k=0;k<4;k++){if(k)s+=TAB;s+=await one(k)}body+=P("ANSWER_4",s,"",af)}
         else if(L===2){body+=P("ANSWER_2",await one(0)+TAB+await one(1),"",af);body+=P("ANSWER_2",await one(2)+(b.items[3]!==undefined?TAB+await one(3):""))}
         else for(let k=0;k<b.items.length;k++)body+=P("ANSWER_1",await one(k),"",af&&k===0);break}
       case"table":{const cols=Math.max(...b.rows.map(r=>r.length));const need=Array(cols).fill(0);
         b.rows.forEach((r,ri)=>r.forEach((c,ci)=>{need[ci]=Math.max(need[ci],CM(piecesW(inline(c))*(ri?1:1.08))+0.5)}));
-        const total=Math.min(16.75,need.reduce((a,x)=>a+Math.max(x,1.2),0));const sum=need.reduce((a,x)=>a+Math.max(x,1.2),0);
+        const total=16.75;const sum=need.reduce((a,x)=>a+Math.max(x,1.2),0);
         const widths=need.map(x=>TW(Math.max(x,1.2)*total/sum));
         const bd=`<w:tblBorders>${["top","left","bottom","right","insideH","insideV"].map(s=>`<w:${s} w:val="single" w:sz="4" w:space="0" w:color="000000"/>`).join("")}</w:tblBorders>`;
         let t=`<w:tbl><w:tblPr><w:tblW w:w="${widths.reduce((a,x)=>a+x,0)}" w:type="dxa"/><w:tblInd w:w="${TW(1.75)}" w:type="dxa"/>${bd}<w:tblLayout w:type="fixed"/><w:tblLook w:val="04A0" w:firstRow="1" w:lastRow="0" w:firstColumn="1" w:lastColumn="0" w:noHBand="0" w:noVBand="1"/></w:tblPr><w:tblGrid>${widths.map(w=>`<w:gridCol w:w="${w}"/>`).join("")}</w:tblGrid>`;
@@ -558,6 +726,56 @@ function celebrate(){const r=btnEx.getBoundingClientRect();["H₂O","CO₂","O�
   function hex(x,y,r,a){g.beginPath();for(let k=0;k<6;k++){const t=a+k*Math.PI/3;g.lineTo(x+r*Math.cos(t),y+r*Math.sin(t))}g.closePath();g.stroke();g.beginPath();g.arc(x,y,r*.55,0,7);g.stroke()}
   function tick(){g.clearRect(0,0,W,Hh);g.strokeStyle="rgba(138,28,43,.07)";g.lineWidth=1.6*devicePixelRatio;
     rings.forEach(o=>{o.y-=o.s;o.a+=o.v;if(o.y<-.1){o.y=1.1;o.x=Math.random()}hex(o.x*W,o.y*Hh,o.r*devicePixelRatio,o.a)});if(!red)requestAnimationFrame(tick)}tick()})();
+/* ================= CẮT & LÀM SẠCH HÌNH ================= */
+const srcImgs=[];let curImg=-1,cropKey=null,selR=null,outCanvas=null,ownMode=false;
+const cv=document.getElementById("cropCv"),cg=cv.getContext("2d"),selEl=document.getElementById("sel"),cropModal=document.getElementById("cropModal");
+function loadFiles(files,cb){[...files].forEach(f=>{if(!f.type.startsWith("image/"))return;const rd=new FileReader();rd.onload=()=>{const im=new Image();im.onload=()=>cb(im);im.src=rd.result};rd.readAsDataURL(f)})}
+function addSrc(im){srcImgs.push(im);document.getElementById("imgN").textContent=srcImgs.length;if(!cropModal.hidden){drawThumbs();showImg(srcImgs.length-1)}document.getElementById("imgN").parentNode.classList.add("pop");}
+document.getElementById("btnImgs").onclick=()=>document.getElementById("fileSrc").click();
+document.getElementById("cAdd").onclick=()=>document.getElementById("fileSrc").click();
+document.getElementById("fileSrc").onchange=e=>{loadFiles(e.target.files,im=>{addSrc(im);toast("Đã thêm ảnh đề. Bấm vào ô hình trong bản xem trước để cắt")});e.target.value=""};
+document.getElementById("cOwn").onclick=()=>document.getElementById("fileOwn").click();
+document.getElementById("fileOwn").onchange=e=>{loadFiles(e.target.files,im=>{ownMode=true;document.getElementById("optClean").checked=false;showRaw(im);selR={x:0,y:0,w:im.width,h:im.height};makeOut()});e.target.value=""};
+addEventListener("paste",e=>{const its=[...(e.clipboardData||{}).items||[]].filter(i=>i.type.startsWith("image/"));if(!its.length)return;e.preventDefault();loadFiles(its.map(i=>i.getAsFile()),im=>{addSrc(im);toast("Đã dán ảnh đề")})});
+function drawThumbs(){const t=document.getElementById("thumbs");t.innerHTML="";srcImgs.forEach((im,i)=>{const x=new Image();x.src=im.src;if(i===curImg)x.className="on";x.onclick=()=>showImg(i);t.appendChild(x)})}
+let rawIm=null;
+function showRaw(im){rawIm=im;cv.width=im.width;cv.height=im.height;cg.drawImage(im,0,0);document.getElementById("cropEmpty").hidden=true;selEl.hidden=true}
+function showImg(i){curImg=i;ownMode=false;showRaw(srcImgs[i]);drawThumbs()}
+function openCrop(key,label){cropKey=key;selR=null;outCanvas=null;ownMode=false;document.getElementById("cropFor").textContent=label;
+  const st=figStore[key];document.getElementById("wcm").value=st?CM(st.W).toFixed(2):8;document.getElementById("wcmV").textContent=(+document.getElementById("wcm").value).toFixed(2).replace(/\.?0+$/,"").replace(".",",");
+  document.getElementById("outImg").src=st&&st.png?st.png:"";document.getElementById("outHint").hidden=!!(st&&st.png);
+  cropModal.hidden=false;drawThumbs();if(srcImgs.length){showImg(curImg>=0?curImg:0)}else{cv.width=0;cv.height=0;document.getElementById("cropEmpty").hidden=false}}
+page.addEventListener("click",e=>{const el=e.target.closest("[data-key]");if(!el)return;const key=el.dataset.key;openCrop(key,key.replace(/^[a-z]+:/,"").replace(/#\d+$/,""))});
+let drag=null;
+cv.addEventListener("pointerdown",e=>{if(!rawIm)return;cv.setPointerCapture(e.pointerId);const r=cv.getBoundingClientRect(),k=cv.width/r.width;drag={x:(e.clientX-r.left)*k,y:(e.clientY-r.top)*k,k}});
+cv.addEventListener("pointermove",e=>{if(!drag)return;const r=cv.getBoundingClientRect(),k=drag.k,x=(e.clientX-r.left)*k,y=(e.clientY-r.top)*k;
+  selR={x:Math.max(0,Math.min(drag.x,x)),y:Math.max(0,Math.min(drag.y,y)),w:Math.abs(x-drag.x),h:Math.abs(y-drag.y)};placeSel()});
+cv.addEventListener("pointerup",()=>{if(!drag)return;drag=null;if(selR&&selR.w>8&&selR.h>8)makeOut()});
+function placeSel(){if(!selR)return;const r=cv.getBoundingClientRect(),st=document.getElementById("cropStage").getBoundingClientRect(),k=r.width/cv.width,sc=document.getElementById("cropStage");
+  selEl.hidden=false;Object.assign(selEl.style,{left:(r.left-st.left+sc.scrollLeft+selR.x*k)+"px",top:(r.top-st.top+sc.scrollTop+selR.y*k)+"px",width:selR.w*k+"px",height:selR.h*k+"px"})}
+function cleanCanvas(c){const w=c.width,h=c.height,g=c.getContext("2d"),id=g.getImageData(0,0,w,h),d=id.data;
+  const s=document.createElement("canvas"),sw=Math.max(6,Math.round(w/14)),sh=Math.max(6,Math.round(h/14));s.width=sw;s.height=sh;const sg=s.getContext("2d");
+  sg.filter="blur(2px)";sg.drawImage(c,0,0,sw,sh);const b=document.createElement("canvas");b.width=w;b.height=h;const bg=b.getContext("2d");bg.imageSmoothingQuality="high";bg.drawImage(s,0,0,w,h);
+  const bd=bg.getImageData(0,0,w,h).data;
+  for(let i=0;i<d.length;i+=4){const gy=.299*d[i]+.587*d[i+1]+.114*d[i+2],bv=Math.max(40,.299*bd[i]+.587*bd[i+1]+.114*bd[i+2]);
+    let v=(gy/bv-.5)/(.86-.5);v=v<0?0:v>1?1:v;v=Math.pow(v,1.6);const o=Math.round(255*v);d[i]=d[i+1]=d[i+2]=o;d[i+3]=255}
+  g.putImageData(id,0,0);return c}
+function makeOut(){if(!rawIm||!selR)return;const sx=Math.round(selR.x),sy=Math.round(selR.y),sw=Math.round(selR.w),sh=Math.round(selR.h);
+  const up=Math.min(4,Math.max(1,1600/sw));const c=document.createElement("canvas");c.width=Math.round(sw*up);c.height=Math.round(sh*up);
+  const g=c.getContext("2d");g.imageSmoothingQuality="high";g.fillStyle="#fff";g.fillRect(0,0,c.width,c.height);g.drawImage(rawIm,sx,sy,sw,sh,0,0,c.width,c.height);
+  if(document.getElementById("optClean").checked)cleanCanvas(c);outCanvas=c;
+  document.getElementById("outImg").src=c.toDataURL("image/png");document.getElementById("outHint").hidden=true;
+  if(!ownMode){const sugg=Math.min(12,Math.max(4,sw/rawIm.width*14));document.getElementById("wcm").value=sugg;document.getElementById("wcmV").textContent=sugg.toFixed(1).replace(".",",")}}
+document.getElementById("optClean").onchange=()=>{if(selR)makeOut()};
+document.getElementById("wcm").oninput=e=>document.getElementById("wcmV").textContent=(+e.target.value).toFixed(2).replace(/\.?0+$/,"").replace(".",",");
+document.getElementById("cCancel").onclick=()=>{cropModal.hidden=true};
+document.getElementById("cDel").onclick=()=>{delete figStore[cropKey];cropModal.hidden=true;render();toast("Đã bỏ hình đã cắt")};
+document.getElementById("cSave").onclick=()=>{if(!outCanvas){toast("Hãy kéo chuột khoanh vùng hình trước");return}
+  const wcm=+document.getElementById("wcm").value,W=wcm/2.54*72,H=W*outCanvas.height/outCanvas.width,png=outCanvas.toDataURL("image/png");
+  outCanvas.toBlob(blob=>{figStore[cropKey]={png,blob,W,H};cropModal.hidden=true;render();toast("✓ Đã chèn hình vào đề")},"image/png")};
+cropModal.addEventListener("click",e=>{if(e.target===cropModal)cropModal.hidden=true});
+addEventListener("keydown",e=>{if(e.key==="Escape"){cropModal.hidden=true;modal.hidden=true}});
+
 let saved=null;try{saved=localStorage.getItem("iuiu-draft")}catch(e){}
 src.value=saved&&saved.trim()?saved:SAMPLE;setZoom(innerWidth<900?.5:.8);render();
 </script>
