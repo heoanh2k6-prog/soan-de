@@ -1,0 +1,565 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>iu iu Soạn đề</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+/* Bố cục: thanh đỏ sẫm trên cùng · trái là ô nội dung · phải là trang A4 xem trước */
+:root{
+  --wine:#8a1c2b; --wine-deep:#5f0f1c; --wine-soft:#fbeaec;
+  --ink:#1d1a1f; --muted:#6c6570; --line:#ece6ea; --paper:#ffffff; --ground:#f7f4f6;
+  --blue:#0000ff; --navy:#002060; --gold:#ffd84d; --ok:#1f9d63; --warn:#d97706;
+  --ui:"Be Vietnam Pro",system-ui,"Segoe UI",sans-serif;
+  --doc:"Times New Roman",Times,serif;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;font-family:var(--ui);color:var(--ink);background:var(--ground);overflow:hidden}
+#bg{position:fixed;inset:0;z-index:0;pointer-events:none}
+.app{position:relative;z-index:1;height:100%;display:grid;grid-template-rows:auto 1fr}
+/* Thanh trên */
+.top{background:linear-gradient(100deg,var(--wine-deep),var(--wine) 55%,#a8283a);color:#fff;
+  display:flex;align-items:center;gap:16px;padding:12px max(18px,env(safe-area-inset-left,0px));
+  box-shadow:0 6px 24px -12px rgba(95,15,28,.6);position:relative;overflow:hidden}
+.top::after{content:"";position:absolute;inset:0;background:linear-gradient(100deg,transparent 30%,rgba(255,255,255,.18) 50%,transparent 70%);
+  transform:translateX(-100%);animation:sheen 6s ease-in-out 1s infinite}
+@keyframes sheen{0%,70%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+.avatar{width:52px;height:52px;border-radius:50%;object-fit:cover;flex:none;border:2.5px solid #fff;box-shadow:0 0 0 3px rgba(255,216,77,.85),0 6px 16px -6px rgba(0,0,0,.5);animation:avin .7s cubic-bezier(.2,.9,.3,1.3) both}
+.avatar:hover{transform:rotate(-6deg) scale(1.06);transition:transform .25s}
+@keyframes avin{from{opacity:0;transform:scale(.4) rotate(-25deg)}}
+.logo polygon{fill:none;stroke:#fff;stroke-width:2.2;stroke-dasharray:120;stroke-dashoffset:120;animation:draw 1.4s .2s ease-out forwards}
+.logo circle{fill:none;stroke:var(--gold);stroke-width:2;stroke-dasharray:60;stroke-dashoffset:60;animation:draw 1s 1.2s ease-out forwards}
+@keyframes draw{to{stroke-dashoffset:0}}
+.brand h1{margin:0;font-size:19px;font-weight:800;letter-spacing:.2px}
+.brand small{display:block;font-size:12px;opacity:.82;font-weight:500}
+.top .spacer{flex:1}
+.btn{font-family:var(--ui);font-weight:600;font-size:14px;border:0;border-radius:10px;padding:10px 16px;cursor:pointer;
+  display:inline-flex;align-items:center;gap:8px;position:relative;overflow:hidden;transition:transform .15s,box-shadow .2s,background .2s}
+.btn:active{transform:scale(.97)}
+.btn:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+.btn-ghost{background:rgba(255,255,255,.14);color:#fff}
+.btn-ghost:hover{background:rgba(255,255,255,.24)}
+.btn-main{background:#fff;color:var(--wine);box-shadow:0 6px 18px -8px rgba(0,0,0,.45)}
+.btn-main:hover{box-shadow:0 10px 26px -8px rgba(0,0,0,.5);transform:translateY(-1px)}
+.btn-soft{background:var(--wine-soft);color:var(--wine)}
+.btn-soft:hover{background:#f6d9dd}
+.ripple{position:absolute;border-radius:50%;transform:scale(0);animation:rip .6s ease-out;background:rgba(138,28,43,.25);pointer-events:none}
+.btn-ghost .ripple{background:rgba(255,255,255,.4)}
+@keyframes rip{to{transform:scale(4);opacity:0}}
+/* Thân */
+.main{display:grid;grid-template-columns:minmax(330px,40%) 1fr;gap:18px;padding:18px max(18px,env(safe-area-inset-left,0px));min-height:0}
+.panel{background:var(--paper);border:1px solid var(--line);border-radius:16px;display:flex;flex-direction:column;min-height:0;min-width:0;
+  box-shadow:0 18px 40px -30px rgba(95,15,28,.35);animation:rise .6s cubic-bezier(.2,.8,.2,1) both}
+.panel:nth-child(2){animation-delay:.12s}
+@keyframes rise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+.ph{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.ph h2{margin:0;font-size:14px;font-weight:700;letter-spacing:.3px;text-transform:uppercase;color:var(--wine)}
+.ph .spacer{flex:1}
+textarea{flex:1;border:0;resize:none;padding:14px 16px;font:14.5px/1.7 var(--ui);color:var(--ink);outline:none;min-height:0;background:transparent}
+.chips{display:flex;gap:8px;flex-wrap:wrap;padding:10px 14px;border-top:1px solid var(--line)}
+.chip{font-size:12px;font-weight:600;padding:5px 10px;border-radius:999px;background:var(--ground);color:var(--muted);display:inline-flex;gap:6px;align-items:center;transition:background .3s,color .3s}
+.chip b{color:var(--ink);font-variant-numeric:tabular-nums}
+.chip.warn{background:#fff4e0;color:var(--warn)}
+.chip.warn b{color:var(--warn)}
+.chip.pop{animation:pop .45s}
+@keyframes pop{40%{transform:scale(1.12)}}
+/* Xem trước */
+.stage{flex:1;overflow:auto;background:repeating-linear-gradient(45deg,#f3eef1 0 12px,#f6f2f4 12px 24px);padding:24px;min-height:0}
+.zoomwrap{transform-origin:top center;margin:0 auto;width:21cm}
+.page{width:21cm;min-height:29.7cm;background:#fff;margin:0 auto;padding:.75cm 1.5cm 1.5cm 1cm;box-shadow:0 2px 3px rgba(0,0,0,.08),0 24px 50px -24px rgba(60,10,20,.35);
+  font-family:var(--doc);font-size:12pt;line-height:1.725;color:#000}
+.page p,.page .p{margin:0;text-align:justify}
+.page .anim{animation:fadeup .45s cubic-bezier(.2,.8,.2,1) both}
+@keyframes fadeup{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.q-first{display:grid;grid-template-columns:1.75cm 1fr}
+.q-label{font-weight:bold;color:var(--blue)}
+.ind{padding-left:1.75cm}
+.eq,.fig{padding-left:1.75cm;text-align:center!important}
+.sec{font-weight:bold}
+.sec span{color:#ff0000;background:#ffff00}
+.guide{font-weight:bold;color:var(--navy)}
+.ans4{padding-left:1.75cm;display:grid;grid-template-columns:4.25cm 4cm 4cm 1fr;text-align:left!important}
+.ans2{padding-left:1.75cm;display:grid;grid-template-columns:8.25cm 1fr;text-align:left!important}
+.ans1{padding-left:1.75cm;text-align:left!important}
+.al{font-weight:bold;color:var(--blue)}
+.lb{font-weight:bold}
+.unclear{background:#ffe9a8;outline:1px dashed var(--warn)}
+.figbox{display:inline-block;border:1.5px dashed #c9a2aa;color:#8a1c2b;background:#fdf6f7;border-radius:6px;padding:4px 14px;font-family:var(--ui);font-size:10pt;line-height:1.5}
+.page table{border-collapse:collapse;margin-left:1.75cm;line-height:1.15;margin-top:2px}
+.page td,.page th{border:.5pt solid #000;padding:2pt 5pt;text-align:center;vertical-align:middle;font-weight:normal}
+.page th{background:#fbe4d5;font-weight:bold}
+.after-table{margin-top:6pt!important}
+svg.vf{overflow:visible}
+.zoom{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+.zoom button{border:1px solid var(--line);background:#fff;border-radius:8px;width:28px;height:28px;cursor:pointer;font-weight:700;color:var(--wine)}
+/* Hộp prompt */
+.modal{position:fixed;inset:0;background:rgba(40,8,15,.38);backdrop-filter:blur(3px);display:grid;place-items:center;z-index:20;padding:16px}
+.modal[hidden]{display:none}
+.card{background:#fff;border-radius:18px;max-width:760px;width:100%;max-height:86vh;display:flex;flex-direction:column;box-shadow:0 30px 80px -20px rgba(0,0,0,.5);animation:zoomin .35s cubic-bezier(.2,.9,.3,1.2)}
+@keyframes zoomin{from{opacity:0;transform:scale(.94) translateY(10px)}}
+.card header{padding:16px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px}
+.card header h3{margin:0;font-size:16px;color:var(--wine)}
+.card pre{margin:0;padding:16px 18px;overflow:auto;white-space:pre-wrap;font:13px/1.6 ui-monospace,Consolas,monospace;flex:1}
+.card footer{padding:12px 18px;border-top:1px solid var(--line);display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
+/* Thông báo */
+.toast{position:fixed;left:50%;bottom:28px;transform:translate(-50%,30px);opacity:0;background:var(--ink);color:#fff;padding:12px 18px;border-radius:12px;font-size:14px;font-weight:600;z-index:30;transition:all .35s cubic-bezier(.2,.9,.3,1.2);display:flex;gap:10px;align-items:center}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+.bubble{position:fixed;z-index:25;pointer-events:none;font-family:var(--doc);font-weight:bold;color:var(--wine);animation:float 1.6s cubic-bezier(.2,.7,.3,1) forwards}
+@keyframes float{from{opacity:1;transform:translate(0,0) scale(.6)}to{opacity:0;transform:translate(var(--dx),-180px) scale(1.15)}}
+.spin{width:16px;height:16px;border:2.5px solid currentColor;border-right-color:transparent;border-radius:50%;animation:sp .7s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+@media (max-width:860px){body{overflow:auto}.app{height:auto}.main{grid-template-columns:1fr}textarea{min-height:50vh}.stage{max-height:80vh}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<canvas id="bg"></canvas>
+<div class="app">
+  <header class="top">
+    <img class="avatar" src="data:image/jpeg;base64,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" alt="">
+    
+    <div class="spacer"></div>
+    <button class="btn btn-ghost" id="btnPrompt">Lấy prompt cho AI</button>
+    <button class="btn btn-main" id="btnExport">Tải Word (.docx)</button>
+  </header>
+  <main class="main">
+    <section class="panel">
+      <div class="ph"><h2>Nội dung đề</h2><div class="spacer"></div>
+        <button class="btn btn-soft" id="btnSample">Đề mẫu</button>
+        <button class="btn btn-soft" id="btnClear">Xoá</button></div>
+      <textarea id="src" spellcheck="false" aria-label="Nội dung đề"></textarea>
+      <div class="chips" id="chips"></div>
+    </section>
+    <section class="panel">
+      <div class="ph"><h2>Xem trước</h2><div class="spacer"></div>
+        <div class="zoom"><button id="zOut" aria-label="Thu nhỏ">−</button><span id="zVal">80%</span><button id="zIn" aria-label="Phóng to">+</button></div></div>
+      <div class="stage" id="stage"><div class="zoomwrap" id="zw"><div class="page" id="page"></div></div></div>
+    </section>
+  </main>
+</div>
+
+<div class="modal" id="modal" hidden>
+  <div class="card" role="dialog" aria-labelledby="mt">
+    <header><h3 id="mt">Prompt gửi kèm ảnh đề</h3></header>
+    <pre id="promptText"></pre>
+    <footer><button class="btn btn-soft" id="btnClose">Đóng</button><button class="btn btn-main" style="background:var(--wine);color:#fff" id="btnCopy">Copy prompt</button></footer>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+/* ================= PROMPT CHO AI ================= */
+const PROMPT = `Bạn là người chép lại đề Hoá. Đọc ảnh/PDF đề tôi gửi và CHÉP LẠI NỘI DUNG theo khuôn bên dưới, trả về trong MỘT khối code duy nhất. Không giải đề, không trình bày Word, không giải thích.
+
+GIỮ: tên PHẦN và hướng dẫn làm bài; Câu n; toàn bộ câu hỏi, dữ kiện, số liệu, bảng, bước thí nghiệm, nhận định a/b/c/d, đáp án A/B/C/D; điểm số tự luận; dữ kiện chung trước Câu 1 (nguyên tử khối...).
+BỎ: tên trường, logo, mã đề, SBD, thời gian, năm học, header/footer, số trang, quảng cáo, chữ viết tay, dấu khoanh/tick, nháp.
+Ghép câu bị cắt qua trang. Không sửa nội dung theo kiến thức (đề có thể cố ý sai). Chỗ không đọc chắc ghi [KHÔNG ĐỌC RÕ], không đoán dấu, số mũ, điện tích.
+
+KHUÔN (mỗi mục một dòng):
+PHẦN I. <tên phần>
+HD: <hướng dẫn của phần>
+Câu 1: <thân câu>          (tự luận: Câu 1 (3,0 điểm): <thân câu>)
+<dòng tiếp của câu, nếu có>
+A. <đáp án>   B. ...   C. ...   D. ...   (mỗi đáp án một dòng)
+a) <nhận định>   (PHẦN đúng/sai, mỗi ý một dòng)
+1.1. <mục nhỏ tự luận>   |   Bước 1: <bước thí nghiệm>
+PT: <phương trình riêng một dòng>
+[HÌNH: <loại hình> | <mô tả ngắn, nhãn trong hình>]
+[HÌNH-CT: <SMILES>]   (riêng công thức cấu tạo, đọc đúng nguyên tử và liên kết)
+| tiêu đề 1 | tiêu đề 2 |   (bảng: mỗi hàng một dòng, hàng đầu là tiêu đề)
+
+KÝ HIỆU TRONG DÒNG:
+Chỉ số dưới: H_2SO_4, C_6H_{12}O_6   ·   Chỉ số trên: Fe^{3+}, cm^{-1}, 70^oC, t^o (độ dùng chữ o, không dùng ° hay 0)
+Ion có cả dưới và trên: SO_4^{2-}, NH_4^+, Cr_2O_7^{2-}   ·   Hạt nhân: ^{235}_{92}U
+Mũi tên: -->  <--  <=> (thuận nghịch)  ;  có điều kiện: -[t^o, xt]->  hoặc  -[trên|dưới]->  ;  <=[trên|dưới]=>
+Nghiêng (ghi chú, giả thiết): *nội dung*   ·   Đậm: **nội dung**
+Δ_rH^o_{298}: viết đúng như vậy.
+
+Cuối khối code, sau dòng ---, liệt kê ngắn các vị trí [KHÔNG ĐỌC RÕ] nếu có.`;
+
+/* ================= ĐỀ MẪU ================= */
+const SAMPLE = `Cho nguyên tử khối: H = 1; C = 12; O = 16; S = 32; Fe = 56.
+PHẦN I. Câu trắc nghiệm nhiều phương án lựa chọn
+HD: Thí sinh trả lời từ câu 1 đến câu 3. Mỗi câu hỏi thí sinh chỉ chọn một phương án.
+Câu 1: Chất nào sau đây là chất điện li mạnh?
+A. CH_3COOH
+B. NaCl
+C. C_2H_5OH
+D. H_2O
+Câu 2: Trong dung dịch, ion nào sau đây kết hợp với Ba^{2+} tạo kết tủa trắng?
+A. SO_4^{2-}
+B. NH_4^+
+C. NO_3^-
+D. Cl^-
+Câu 3: Đun nóng ethanol với dung dịch H_2SO_4 đặc ở 170^oC thu được khí X. Phát biểu nào sau đây đúng về khí X?
+A. X làm mất màu nước bromine.
+B. X không cháy trong không khí.
+C. X tan rất tốt trong nước ở điều kiện thường.
+D. X có công thức phân tử là C_2H_6.
+PHẦN II. Câu trắc nghiệm đúng sai
+HD: Thí sinh trả lời câu 1. Trong mỗi ý a), b), c), d) ở mỗi câu, thí sinh chọn đúng hoặc sai.
+Câu 1: Cho cân bằng hoá học sau trong bình kín:
+PT: N_2(g) + 3H_2(g) <=[t^o, xt, p|]=> 2NH_3(g)        Δ_rH^o_{298} = –92 kJ
+a) Khi tăng nhiệt độ, cân bằng chuyển dịch theo chiều nghịch.
+b) Khi tăng áp suất chung của hệ, cân bằng chuyển dịch theo chiều thuận.
+c) Thêm chất xúc tác làm tăng hiệu suất tạo NH_3.
+d) Phản ứng thuận là phản ứng toả nhiệt.
+PHẦN III. Câu tự luận
+Câu 1 (2,0 điểm):
+1.1. Viết phương trình hoá học của phản ứng điều chế khí X từ ethanol:
+PT: C_2H_5OH -[H_2SO_4 đặc, 170^oC]-> CH_2=CH_2 + H_2O
+1.2. Cho bảng số liệu thí nghiệm sau:
+| Thí nghiệm | Thể tích ethanol (mL) | Thể tích khí X (mL, đkc) |
+| 1 | 5,0 | 1 240 |
+| 2 | 10,0 | [KHÔNG ĐỌC RÕ] |
+Tính hiệu suất phản ứng ở thí nghiệm 1. *(Biết khối lượng riêng của ethanol là 0,8 g/mL.)*
+[HÌNH: dụng cụ | bộ điều chế ethylene: bình cầu, đèn cồn, bình đựng dung dịch Y, ống nghiệm nước Br_2]`;
+
+/* ================= LÕI CÔNG THỨC (theo iu iu: row/run/script/arrow) ================= */
+const VF = {
+  run:(text,role)=>({type:"run",role:role||"chemistry",text}),
+  row:(children)=>({type:"row",children}),
+  script:(base,sup,sub,variant)=>({type:"script",variant:variant||0,children:[base,sup||VF.row([]),sub||VF.row([])]}),
+  arrow:(variant,above,below)=>({type:"arrow",variant,length:2.4,children:[above||VF.row([]),below||VF.row([])]}),
+  doc:(root)=>({format:"VietFormula",version:2,font:"Times New Roman",sizePt:12,bold:false,root:root.type==="row"?root:VF.row([root])})
+};
+const mctx=document.createElement("canvas").getContext("2d");
+function textW(s,pt,italic,bold){mctx.font=(italic?"italic ":"")+(bold?"bold ":"")+(pt*96/72)+"px 'Times New Roman',Times,serif";return mctx.measureText(s).width*72/96}
+const esc=s=>String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+// layout trả về {w,asc,desc,svg(x,y)} — đơn vị pt, y là baseline
+function lay(n,pt){
+  if(n.type==="run"){
+    const it=n.role==="variable",w=textW(n.text,pt,it);
+    return {w,asc:pt*.70,desc:pt*.22,svg:(x,y)=>n.text?`<text x="${x.toFixed(2)}" y="${y.toFixed(2)}" font-size="${pt}"${it?' font-style="italic"':""}>${esc(n.text)}</text>`:""};
+  }
+  if(n.type==="row"){
+    const parts=n.children.map(c=>lay(c,pt));let w=0,asc=n.children.length?0:0,desc=0;
+    parts.forEach(p=>{w+=p.w;asc=Math.max(asc,p.asc);desc=Math.max(desc,p.desc)});
+    return {w,asc,desc,svg:(x,y)=>{let s="",cx=x;parts.forEach(p=>{s+=p.svg(cx,y);cx+=p.w});return s}};
+  }
+  if(n.type==="script"){
+    const sp=pt*.70,b=lay(n.children[0],pt),su=lay(n.children[1],sp),sb=lay(n.children[2],sp);
+    const up=pt*.40,dn=pt*.22,sw=Math.max(su.w,sb.w)+pt*.03;
+    const asc=Math.max(b.asc,su.w?up+su.asc:0),desc=Math.max(b.desc,sb.w?dn+sb.desc:0);
+    if(n.variant===1){ // chỉ số bên trái, căn phải
+      return {w:sw+b.w,asc,desc,svg:(x,y)=>su.svg(x+sw-su.w-pt*.03,y-up)+sb.svg(x+sw-sb.w-pt*.03,y+dn)+b.svg(x+sw,y)};
+    }
+    return {w:b.w+sw,asc,desc,svg:(x,y)=>b.svg(x,y)+su.svg(x+b.w+pt*.02,y-up)+sb.svg(x+b.w+pt*.02,y+dn)};
+  }
+  if(n.type==="arrow"){
+    const lp=pt*.75,ab=lay(n.children[0],lp),bl=lay(n.children[1],lp);
+    const L=Math.max((n.length||2.4)*pt,Math.max(ab.w,bl.w)+pt*.8),pad=pt*.18,axis=pt*.27,gap=pt*.16;
+    const v=n.variant||0,two=v===3||v===4,off=two?pt*.10:0;
+    const asc=Math.max(pt*.7,axis+off+gap+(ab.w?ab.asc+ab.desc:0)),desc=Math.max(pt*.22,(bl.w?bl.asc+bl.desc+gap-axis+off:0));
+    const W=L+2*pad;
+    return {w:W,asc,desc,svg:(x,y)=>{
+      const x1=x+pad,x2=x+pad+L,ay=y-axis,hl=pt*.34,hw=pt*.13,sw=(pt*.055).toFixed(3);
+      const line=(a,b,yy)=>`<line x1="${a.toFixed(2)}" y1="${yy.toFixed(2)}" x2="${b.toFixed(2)}" y2="${yy.toFixed(2)}" stroke="#000" stroke-width="${sw}"/>`;
+      const head=(tx,yy,dir,half)=>{const bx=tx-dir*hl;
+        return half?`<path d="M${tx.toFixed(2)} ${yy.toFixed(2)} L${bx.toFixed(2)} ${(yy+half*hw*1.4).toFixed(2)} L${(bx+dir*hl*.25).toFixed(2)} ${yy.toFixed(2)}Z" fill="#000"/>`
+        :`<path d="M${tx.toFixed(2)} ${yy.toFixed(2)} L${bx.toFixed(2)} ${(yy-hw).toFixed(2)} L${(bx+dir*hl*.28).toFixed(2)} ${yy.toFixed(2)} L${bx.toFixed(2)} ${(yy+hw).toFixed(2)}Z" fill="#000"/>`};
+      let s="";
+      if(v===0)s+=line(x1,x2-hl*.6,ay)+head(x2,ay,1);
+      else if(v===1)s+=line(x1+hl*.6,x2,ay)+head(x1,ay,-1);
+      else if(v===2)s+=line(x1+hl*.6,x2-hl*.6,ay)+head(x2,ay,1)+head(x1,ay,-1);
+      else if(v===3)s+=line(x1,x2-hl*.5,ay-off)+head(x2,ay-off,1,-1)+line(x1+hl*.5,x2,ay+off)+head(x1,ay+off,-1,1);
+      else s+=line(x1,x2-hl*.6,ay-off)+head(x2,ay-off,1)+line(x1+hl*.6,x2,ay+off)+head(x1,ay+off,-1);
+      if(ab.w)s+=ab.svg(x+(W-ab.w)/2,ay-off-gap-ab.desc);
+      if(bl.w)s+=bl.svg(x+(W-bl.w)/2,ay+off+gap+bl.asc);
+      return s}};
+  }
+  return {w:0,asc:0,desc:0,svg:()=>""};
+}
+function vfSVG(doc){
+  const pt=doc.sizePt,L=lay(doc.root,pt),pad=.6,W=L.w+pad*2,H=L.asc+L.desc+pad*2;
+  const svg=`<svg xmlns="http://www.w3.org/2000/svg" class="vf" width="${W.toFixed(2)}pt" height="${H.toFixed(2)}pt" viewBox="0 0 ${W.toFixed(2)} ${H.toFixed(2)}" font-family="Times New Roman, Times, serif" fill="#000">${L.svg(pad,pad+L.asc)}</svg>`;
+  return {svg,W,H,descent:L.desc+pad};
+}
+
+/* ================= ĐỌC KÝ HIỆU TRONG DÒNG ================= */
+// Trả về danh sách mẩu: {k:"t",s,b,i,va} | {k:"f",doc}
+function grp(s,i){ // đọc nhóm sau _ hoặc ^ : {..} hoặc 1 ký tự (kèm dấu +/- cho ^)
+  if(s[i]==="{"){const j=s.indexOf("}",i);if(j<0)return [s.slice(i+1),s.length];return [s.slice(i+1,j),j+1]}
+  let m=s.slice(i).match(/^(\d+[+\-–]?|[+\-–]|o|[A-Za-z0-9])/);return m?[m[1],i+m[1].length]:["",i];
+}
+const isChemWord=w=>/[A-Z]/.test(w)&&/^[A-Za-z0-9()\[\]·.]+$/.test(w);
+function textToVF(str){ // dùng cho nhãn mũi tên: chuyển thành nút công thức
+  const out=[];const pieces=inline(str,true);
+  for(const p of pieces){
+    if(p.k==="f"){out.push(...p.doc.root.children);continue}
+    if(p.va){const last=out.pop()||VF.run("");out.push(p.va==="sub"?VF.script(last,null,VF.run(p.s,"text")):VF.script(last,VF.run(p.s,"text"),null));continue}
+    // tách từng ký tự cuối thành nút riêng để chỉ số bám đúng
+    const parts=p.s.split(/(\s+)/);
+    for(const w of parts){if(!w)continue;
+      if(isChemWord(w)){const m=w.match(/^(.*?)([A-Z][a-z]?|[)\]]|[a-z])$/);if(m&&m[1])out.push(VF.run(m[1],"chemistry"));out.push(VF.run(m?m[2]:w,"chemistry"))}
+      else out.push(VF.run(w,"text"))}
+  }
+  return VF.row(out);
+}
+const ARROWS=[ // [regex, variant]
+  [/^<=\[([^\]]*)\]=>/,3],[/^-\[([^\]]*)\]->/,0],[/^<-\[([^\]]*)\]-/,1],
+  [/^<=>/,3],[/^<-->/,2],[/^-->/,0],[/^<--/,1],[/^→/,0],[/^⇌/,3]
+];
+function inline(s,inArrow){
+  const out=[];let buf="",bold=false,ital=false;
+  const flush=()=>{if(buf){out.push({k:"t",s:buf,b:bold,i:ital});buf=""}};
+  let i=0;
+  while(i<s.length){
+    const rest=s.slice(i);
+    if(rest.startsWith("**")){flush();bold=!bold;i+=2;continue}
+    if(s[i]==="*"&&!inArrow){flush();ital=!ital;i++;continue}
+    if(rest.startsWith("[KHÔNG ĐỌC RÕ]")){flush();out.push({k:"t",s:"[KHÔNG ĐỌC RÕ]",b:bold,i:ital,unclear:true});i+=14;continue}
+    if(!inArrow){let hit=null;for(const [re,v] of ARROWS){const m=rest.match(re);if(m){hit=[m,v];break}}
+      if(hit){flush();const [m,v]=hit;let up="",dn="";if(m[1]!==undefined){const k=m[1].split("|");up=k[0]||"";dn=k[1]||""}
+        out.push({k:"f",doc:VF.doc(VF.arrow(v,up.trim()?textToVF(up.trim()):null,dn.trim()?textToVF(dn.trim()):null))});i+=m[0].length;continue}}
+    if((s[i]==="_"||s[i]==="^")&&i+1<s.length){
+      const a=s[i];let [g1,j]=grp(s,i+1);
+      const b2=s[j]===(a==="_"?"^":"_")?s[j]:null;let g2="",k=j;
+      if(b2){[g2,k]=grp(s,j+1)}
+      g1=g1.replace(/-/g,"–").replace(/–/g,"−");g2=g2.replace(/-/g,"–").replace(/–/g,"−");
+      const sub=a==="_"?g1:g2,sup=a==="^"?g1:g2;
+      if(b2&&!inArrow){ // chỉ số xếp chồng → công thức iu iu
+        // bên trái (hạt nhân) nếu ngay sau là chữ cái và trước là khoảng trắng/đầu
+        const before=buf.match(/[A-Za-z)\]]$/);
+        if(!before){const m=s.slice(k).match(/^([A-Z][a-z]?)/);
+          if(m){flush();out.push({k:"f",doc:VF.doc(VF.script(VF.run(m[1]),VF.run(sup),VF.run(sub),1))});i=k+m[1].length;continue}}
+        // lấy cả cụm hoá học phía trước làm một công thức
+        let word=buf.match(/[A-Za-z0-9()\[\]·]*$/)[0];const lead=word.match(/^\d*/)[0];word=word.slice(lead.length);
+        buf=buf.slice(0,buf.length-word.length);flush();
+        const nodes=[];
+        // gom các mẩu chỉ số dưới đã ghép trước đó trong cùng cụm
+        while(out.length&&!buf){const p=out[out.length-1];if(p.k==="t"&&p.va==="sub"&&out.length>1&&out[out.length-2].k==="t"&&!out[out.length-2].va&&/[A-Za-z)\]]$/.test(out[out.length-2].s)){
+            const pb=out[out.length-2];const w2=pb.s.match(/[A-Za-z0-9()\[\]·]*$/)[0];const ld=w2.match(/^\d*/)[0];const core=w2.slice(ld.length);
+            if(!core)break;out.pop();out.pop();const remain=pb.s.slice(0,pb.s.length-core.length);if(remain)out.push({...pb,s:remain});
+            const mb=core.match(/^(.*?)([A-Z][a-z]?|[)\]])$/);if(mb&&mb[1])nodes.unshift(VF.run(mb[1]));nodes.splice(mb&&mb[1]?1:0,0,VF.script(VF.run(mb?mb[2]:core),null,VF.run(p.s,"text")));
+            if(remain&&!/[A-Za-z0-9()\[\]·]$/.test(remain))break;else break}else break}
+        const mb=word.match(/^(.*?)([A-Z][a-z]?|[)\]])$/);
+        const pre=mb?mb[1]:"",base=mb?mb[2]:word;
+        if(pre)nodes.push(VF.run(pre));
+        nodes.push(VF.script(VF.run(base),VF.run(sup,"text"),VF.run(sub,"text")));
+        out.push({k:"f",doc:VF.doc(VF.row(nodes))});i=k;continue;
+      }
+      flush();out.push({k:"t",s:g1.replace(/^o$/,"o"),b:bold,i:false,va:a==="_"?"sub":"sup"});i=j;continue;
+    }
+    buf+=s[i];i++;
+  }
+  flush();return out;
+}
+
+/* ================= ĐỌC CẤU TRÚC ĐỀ ================= */
+function parse(src){
+  const lines=src.replace(/\r/g,"").split("\n");const blocks=[];let inQ=false,essay=false,table=null,afterTable=false;
+  const push=b=>{if(afterTable){b.after=true;afterTable=false}blocks.push(b)};
+  for(let raw of lines){
+    const line=raw.trim();
+    if(line.startsWith("|")){if(/^\|[\s:\-|]+\|$/.test(line))continue;const cells=line.replace(/^\||\|$/g,"").split("|").map(c=>c.trim());
+      if(!table){table={type:"table",rows:[]};blocks.push(table)}table.rows.push(cells);continue}
+    if(table){table=null;afterTable=true}
+    if(!line||line==="---")continue;
+    let m;
+    if(m=line.match(/^PHẦN\s+[IVX\d]+\b.*$/i)){inQ=false;push({type:"sec",text:line});continue}
+    if(m=line.match(/^HD:\s*(.*)$/)){push({type:"guide",text:m[1]});continue}
+    if(m=line.match(/^Câu\s+(\d+)\s*(\([^)]*điểm\))?\s*[:.]\s*(\([^)]*điểm\))?\s*(.*)$/)){
+      inQ=true;essay=!!(m[2]||m[3]);push({type:"q",n:m[1],pts:m[2]||m[3]||"",text:m[4]});continue}
+    if(inQ&&(m=line.match(/^A[.)]\s+(.*)$/))){
+      const parts=("A. "+m[1]).split(/\s+(?=[B-D][.)]\s)/);const ans=parts.map(p=>p.replace(/^[A-D][.)]\s*/,""));
+      push({type:"ans",items:ans});continue}
+    if(inQ&&(m=line.match(/^([B-D])[.)]\s+(.*)$/))){const last=blocks[blocks.length-1];if(last&&last.type==="ans"){last.items.push(m[2]);continue}}
+    if(m=line.match(/^PT:\s*(.*)$/)){push({type:"eq",text:m[1]});continue}
+    if(m=line.match(/^\[HÌNH(-CT)?\s*:?\s*([^\]]*)\]$/)){push({type:"fig",ct:!!m[1],text:m[2]});continue}
+    if(inQ&&(m=line.match(/^([a-e]\))\s+(.*)$/))){push({type:"lab",label:m[1],text:m[2]});continue}
+    if(inQ&&(m=line.match(/^((?:Bước|Tác động)\s+\d+\s*[:.])\s*(.*)$/))){push({type:"lab",label:m[1],text:m[2]});continue}
+    if(inQ&&(m=line.match(/^(\d+(?:\.\d+)*\.)\s+(.*)$/))){push({type:"lab",label:m[1],text:m[2]});continue}
+    push({type:inQ?"child":"body",text:line});
+  }
+  return blocks;
+}
+
+/* ================= ĐO ĐỘ RỘNG ĐÁP ÁN ================= */
+const CM=pt=>pt/72*2.54;
+function piecesW(pcs){let w=0;for(const p of pcs){if(p.k==="f"){w+=vfSVG(p.doc).W}else w+=textW(p.s,p.va?8:12,p.i,p.b)}return w}
+function ansLayout(items){
+  const ws=items.map(t=>CM(textW("A. ",12,false,true)+piecesW(inline(t))));
+  if(items.length!==4)return 1;
+  if(ws[0]<=4.0&&ws[1]<=3.75&&ws[2]<=3.75&&ws[3]<=4.4)return 4;
+  if(ws[0]<=7.95&&ws[2]<=7.95&&ws[1]<=8.4&&ws[3]<=8.4)return 2;
+  return 1;
+}
+
+/* ================= XEM TRƯỚC ================= */
+function htmlPieces(pcs){return pcs.map(p=>{
+  if(p.k==="f"){const r=vfSVG(p.doc);return r.svg.replace("<svg ",`<svg style="vertical-align:-${r.descent.toFixed(2)}pt" `)}
+  let t=esc(p.s);if(p.va)t=`<${p.va}>${t}</${p.va}>`;if(p.b)t=`<b>${t}</b>`;if(p.i)t=`<i>${t}</i>`;if(p.unclear)t=`<span class="unclear">${t}</span>`;return t}).join("")}
+const H=t=>htmlPieces(inline(t));
+let qCount=0,fCount=0,figCount=0,unclear=0;
+function render(){
+  const blocks=parse(src.value);let html="";qCount=0;fCount=0;figCount=0;unclear=(src.value.match(/\[KHÔNG ĐỌC RÕ\]/g)||[]).length;
+  src.value.replace(/<=\[|-\[|<=>|<-->|-->|<--|[A-Za-z)\]][_^]\S*?[_^]/g,()=>{fCount++});
+  let d=0;const A=()=>` style="animation-delay:${Math.min(d++*25,600)}ms"`;
+  for(const b of blocks){
+    const ac=b.after?" after-table":"";
+    switch(b.type){
+      case"sec":html+=`<p class="sec anim${ac}"${A()}><span>${esc(b.text)}</span></p>`;break;
+      case"guide":html+=`<p class="guide anim${ac}"${A()}>${H(b.text)}</p>`;break;
+      case"body":html+=`<p class="anim${ac}"${A()}>${H(b.text)}</p>`;break;
+      case"q":qCount++;html+=`<div class="q-first anim${ac}"${A()}><span class="q-label">Câu ${b.n}:</span><p>${b.pts?`<b>${esc(b.pts)}</b> `:""}${H(b.text)}</p></div>`;break;
+      case"child":html+=`<p class="ind anim${ac}"${A()}>${H(b.text)}</p>`;break;
+      case"lab":html+=`<p class="ind anim${ac}"${A()}><span class="lb">${esc(b.label)}</span> ${H(b.text)}</p>`;break;
+      case"eq":html+=`<p class="eq anim${ac}"${A()}>${H(b.text)}</p>`;break;
+      case"fig":figCount++;html+=`<p class="fig anim${ac}"${A()}><span class="figbox">${b.ct?"Công thức cấu tạo":"Hình"}: ${H(b.text)}</span></p>`;break;
+      case"ans":{const L=ansLayout(b.items),c="ABCD";const cell=(t,k)=>`<span><span class="al">${c[k]}.</span> ${H(t)}</span>`;
+        if(L===4)html+=`<div class="ans4 anim${ac}"${A()}>${b.items.map(cell).join("")}</div>`;
+        else if(L===2)html+=`<div class="ans2 anim${ac}"${A()}>${cell(b.items[0],0)}${cell(b.items[1],1)}</div><div class="ans2 anim"${A()}>${cell(b.items[2],2)}${b.items[3]!==undefined?cell(b.items[3],3):""}</div>`;
+        else html+=b.items.map((t,k)=>`<p class="ans1 anim"${A()}>${cell(t,k)}</p>`).join("");break}
+      case"table":{html+=`<table class="anim"${A()}>`+b.rows.map((r,ri)=>"<tr>"+r.map(c=>ri?`<td>${H(c)}</td>`:`<th>${H(c)}</th>`).join("")+"</tr>").join("")+"</table>";break}
+    }
+  }
+  page.innerHTML=html||`<p style="color:#9b8f97;font-family:var(--ui);text-align:center;margin-top:3cm">Dán nội dung đề vào ô bên trái, bản xem trước hiện ở đây.</p>`;
+  chips.innerHTML=`<span class="chip">Câu <b>${qCount}</b></span><span class="chip">Công thức iu iu <b>${fCount}</b></span><span class="chip">Hình <b>${figCount}</b></span>`+
+    (unclear?`<span class="chip warn">Chỗ không đọc rõ <b>${unclear}</b></span>`:"");
+}
+
+/* ================= TẠO FILE WORD ================= */
+const TW=cm=>Math.round(cm*567);
+const xe=s=>String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+const RPR_DEF=`<w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:eastAsia="Times New Roman" w:cs="Times New Roman"/><w:sz w:val="24"/><w:szCs w:val="24"/><w:lang w:val="vi-VN"/>`;
+const NOKEEP=`<w:keepNext w:val="0"/><w:keepLines w:val="0"/><w:pageBreakBefore w:val="0"/><w:widowControl w:val="0"/>`;
+function stylesXML(){
+  const ps=(id,name,ppr,rpr="")=>`<w:style w:type="paragraph" w:customStyle="1" w:styleId="${id}"><w:name w:val="${name}"/><w:basedOn w:val="Normal"/><w:qFormat/><w:pPr>${NOKEEP}${ppr}</w:pPr>${rpr?`<w:rPr>${rpr}</w:rPr>`:""}</w:style>`;
+  const ind=`<w:ind w:left="${TW(1.75)}" w:firstLine="0"/>`;
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+<w:docDefaults><w:rPrDefault><w:rPr>${RPR_DEF}</w:rPr></w:rPrDefault><w:pPrDefault><w:pPr>${NOKEEP}<w:spacing w:before="0" w:after="0" w:line="360" w:lineRule="auto"/><w:jc w:val="both"/></w:pPr></w:pPrDefault></w:docDefaults>
+<w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:qFormat/><w:pPr>${NOKEEP}<w:spacing w:before="0" w:after="0" w:line="360" w:lineRule="auto"/><w:jc w:val="both"/></w:pPr><w:rPr>${RPR_DEF}</w:rPr></w:style>
+${ps("BODY","BODY","")}
+${ps("SECTION_TITLE","SECTION_TITLE","<w:jc w:val=\"left\"/>","<w:b/><w:color w:val=\"FF0000\"/>")}
+${ps("SECTION_GUIDE","SECTION_GUIDE","","<w:b/><w:color w:val=\"002060\"/>")}
+${ps("QUESTION_FIRST","QUESTION_FIRST",`<w:tabs><w:tab w:val="left" w:pos="${TW(1.75)}"/></w:tabs><w:ind w:left="${TW(1.75)}" w:hanging="${TW(1.75)}"/>`)}
+${ps("QUESTION_CHILD","QUESTION_CHILD",ind)}
+${ps("ESSAY_MAIN","ESSAY_MAIN",`<w:tabs><w:tab w:val="left" w:pos="${TW(1.75)}"/></w:tabs><w:ind w:left="${TW(1.75)}" w:hanging="${TW(1.75)}"/>`)}
+${ps("ESSAY_ITEM","ESSAY_ITEM",ind)}
+${ps("ESSAY_REQUEST","ESSAY_REQUEST",ind)}
+${ps("ESSAY_CHILD","ESSAY_CHILD",ind)}
+${ps("ESSAY_STEP","ESSAY_STEP",ind)}
+${ps("ANSWER_4","ANSWER_4",`<w:tabs><w:tab w:val="left" w:pos="${TW(6)}"/><w:tab w:val="left" w:pos="${TW(10)}"/><w:tab w:val="left" w:pos="${TW(14)}"/></w:tabs>${ind}<w:jc w:val="left"/>`)}
+${ps("ANSWER_2","ANSWER_2",`<w:tabs><w:tab w:val="left" w:pos="${TW(10)}"/></w:tabs>${ind}<w:jc w:val="left"/>`)}
+${ps("ANSWER_1","ANSWER_1",`${ind}<w:jc w:val="left"/>`)}
+${ps("EQUATION_LINE","EQUATION_LINE",`${ind}<w:jc w:val="center"/>`)}
+${ps("FIGURE_CODE","FIGURE_CODE",`${ind}<w:spacing w:line="240" w:lineRule="auto"/><w:jc w:val="center"/>`)}
+${ps("TABLE_CELL","TABLE_CELL",`<w:spacing w:line="276" w:lineRule="auto"/><w:ind w:left="0" w:firstLine="0"/><w:jc w:val="center"/>`)}
+${ps("TABLE_HEADER","TABLE_HEADER",`<w:spacing w:line="276" w:lineRule="auto"/><w:ind w:left="0" w:firstLine="0"/><w:jc w:val="center"/>`,"<w:b/>")}
+<w:style w:type="character" w:customStyle="1" w:styleId="NOTE_ITALIC"><w:name w:val="NOTE_ITALIC"/><w:rPr><w:i/></w:rPr></w:style>
+<w:style w:type="table" w:default="1" w:styleId="TableNormal"><w:name w:val="Normal Table"/><w:tblPr><w:tblInd w:w="0" w:type="dxa"/><w:tblCellMar><w:top w:w="0" w:type="dxa"/><w:left w:w="108" w:type="dxa"/><w:bottom w:w="0" w:type="dxa"/><w:right w:w="108" w:type="dxa"/></w:tblCellMar></w:tblPr></w:style>
+</w:styles>`;
+}
+async function svgToPng(svg,W,H,scale){
+  return new Promise((res,rej)=>{const img=new Image();img.onload=()=>{const c=document.createElement("canvas");c.width=Math.ceil(W*scale);c.height=Math.ceil(H*scale);
+    const g=c.getContext("2d");g.fillStyle="#fff";g.fillRect(0,0,c.width,c.height);g.drawImage(img,0,0,c.width,c.height);c.toBlob(b=>b?res(b):rej(new Error("png")),"image/png")};
+    img.onerror=()=>rej(new Error("svg"));img.src="data:image/svg+xml;charset=utf-8,"+encodeURIComponent(svg)})}
+async function buildDocx(){
+  const blocks=parse(src.value);const media=[];let rid=10,pid=1;
+  const runT=(p,extra="")=>{let r="";if(p.b)r+="<w:b/>";if(p.i)r+="<w:i/>";if(p.unclear)r+=`<w:highlight w:val="yellow"/>`;if(p.va)r+=`<w:vertAlign w:val="${p.va==="sub"?"subscript":"superscript"}"/>`;r+=extra;
+    return `<w:r>${r?`<w:rPr>${r}</w:rPr>`:""}<w:t xml:space="preserve">${xe(p.s)}</w:t></w:r>`};
+  async function runF(doc){
+    const r=vfSVG(doc);const svgSolid=r.svg.replace('class="vf" ','');
+    const png=await svgToPng(svgSolid,r.W,r.H,12);const id="rId"+(rid++),name=`vf${media.length+1}.png`;
+    media.push({name,blob:png,id,svg:svgSolid});
+    const cx=Math.round(r.W*12700),cy=Math.round(r.H*12700),pos=Math.round(r.descent*2);
+    const n=pid++;const json=xe(JSON.stringify(doc));
+    return `<w:r><w:rPr><w:position w:val="-${pos}"/></w:rPr><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="${cx}" cy="${cy}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="${n}" name="VF${n}" descr="${json}"/><wp:cNvGraphicFramePr><a:graphicFrameLocks xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" noChangeAspect="1"/></wp:cNvGraphicFramePr><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="${n}" name="${name}"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${id}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>`}
+  async function runs(text,extra=""){let o="";for(const p of inline(text)){o+=p.k==="f"?await runF(p.doc):runT(p,extra)}return o}
+  const P=(style,body,ppr="",after=false)=>`<w:p><w:pPr><w:pStyle w:val="${style}"/>${after?`<w:spacing w:before="120"/>`:""}${ppr}</w:pPr>${body}</w:p>`;
+  const lab=(t,color)=>`<w:r><w:rPr><w:b/>${color?`<w:color w:val="${color}"/>`:""}</w:rPr><w:t xml:space="preserve">${xe(t)}</w:t></w:r>`;
+  const TAB="<w:r><w:tab/></w:r>";
+  let body="";let essay=false;
+  for(const b of blocks){
+    const af=!!b.after;
+    switch(b.type){
+      case"sec":body+=P("SECTION_TITLE",`<w:r><w:rPr><w:b/><w:color w:val="FF0000"/><w:highlight w:val="yellow"/></w:rPr><w:t xml:space="preserve">${xe(b.text)}</w:t></w:r>`,"",af);break;
+      case"guide":body+=P("SECTION_GUIDE",await runs(b.text),"",af);break;
+      case"body":body+=P("BODY",await runs(b.text),"",af);break;
+      case"q":essay=!!b.pts;body+=P(essay?"ESSAY_MAIN":"QUESTION_FIRST",lab(`Câu ${b.n}:`,"0000FF")+TAB+(b.pts?lab(b.pts)+(b.text?`<w:r><w:t xml:space="preserve"> </w:t></w:r>`:""):"")+await runs(b.text),"",af);break;
+      case"child":body+=P(essay?"ESSAY_CHILD":"QUESTION_CHILD",await runs(b.text),"",af);break;
+      case"lab":{const st=/^(Bước|Tác)/.test(b.label)?"ESSAY_STEP":/^\d/.test(b.label)?"ESSAY_ITEM":essay?"ESSAY_REQUEST":"QUESTION_CHILD";
+        body+=P(st,lab(b.label+" ")+await runs(b.text),"",af);break}
+      case"eq":body+=P("EQUATION_LINE",await runs(b.text),"",af);break;
+      case"fig":body+=P("FIGURE_CODE",`<w:r><w:rPr><w:highlight w:val="cyan"/></w:rPr><w:t xml:space="preserve">[CHÈN HÌNH THỦ CÔNG – ${xe(b.ct?"Công thức cấu tạo: ":"")}${xe(b.text.replace(/[_^{}]/g,""))}]</w:t></w:r>`,"",af);break;
+      case"ans":{const L=ansLayout(b.items),c="ABCD";const one=async k=>lab(c[k]+". ","0000FF")+await runs(b.items[k]);
+        if(L===4){let s="";for(let k=0;k<4;k++){if(k)s+=TAB;s+=await one(k)}body+=P("ANSWER_4",s,"",af)}
+        else if(L===2){body+=P("ANSWER_2",await one(0)+TAB+await one(1),"",af);body+=P("ANSWER_2",await one(2)+(b.items[3]!==undefined?TAB+await one(3):""))}
+        else for(let k=0;k<b.items.length;k++)body+=P("ANSWER_1",await one(k),"",af&&k===0);break}
+      case"table":{const cols=Math.max(...b.rows.map(r=>r.length));const need=Array(cols).fill(0);
+        b.rows.forEach((r,ri)=>r.forEach((c,ci)=>{need[ci]=Math.max(need[ci],CM(piecesW(inline(c))*(ri?1:1.08))+0.5)}));
+        const total=Math.min(16.75,need.reduce((a,x)=>a+Math.max(x,1.2),0));const sum=need.reduce((a,x)=>a+Math.max(x,1.2),0);
+        const widths=need.map(x=>TW(Math.max(x,1.2)*total/sum));
+        const bd=`<w:tblBorders>${["top","left","bottom","right","insideH","insideV"].map(s=>`<w:${s} w:val="single" w:sz="4" w:space="0" w:color="000000"/>`).join("")}</w:tblBorders>`;
+        let t=`<w:tbl><w:tblPr><w:tblW w:w="${widths.reduce((a,x)=>a+x,0)}" w:type="dxa"/><w:tblInd w:w="${TW(1.75)}" w:type="dxa"/>${bd}<w:tblLayout w:type="fixed"/><w:tblLook w:val="04A0" w:firstRow="1" w:lastRow="0" w:firstColumn="1" w:lastColumn="0" w:noHBand="0" w:noVBand="1"/></w:tblPr><w:tblGrid>${widths.map(w=>`<w:gridCol w:w="${w}"/>`).join("")}</w:tblGrid>`;
+        for(let ri=0;ri<b.rows.length;ri++){t+="<w:tr>";for(let ci=0;ci<cols;ci++){const c=b.rows[ri][ci]||"";
+          t+=`<w:tc><w:tcPr><w:tcW w:w="${widths[ci]}" w:type="dxa"/>${ri?"":`<w:shd w:val="clear" w:color="auto" w:fill="FBE4D5"/>`}<w:vAlign w:val="center"/></w:tcPr>${P(ri?"TABLE_CELL":"TABLE_HEADER",await runs(c,ri?"":"<w:b/>"))}</w:tc>`}t+="</w:tr>"}
+        body+=t+"</w:tbl>";break}
+    }
+  }
+  if(body.endsWith("</w:tbl>"))body+=P("BODY","","",true);
+  const sect=`<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="${TW(.75)}" w:right="${TW(1.5)}" w:bottom="${TW(1.5)}" w:left="${TW(1)}" w:header="0" w:footer="0" w:gutter="0"/><w:cols w:space="720"/></w:sectPr>`;
+  const docXML=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><w:body>${body}${sect}</w:body></w:document>`;
+  const zip=new JSZip();
+  zip.file("[Content_Types].xml",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="png" ContentType="image/png"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/><Override PartName="/word/settings.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.settings+xml"/></Types>`);
+  zip.file("_rels/.rels",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>`);
+  zip.file("word/_rels/document.xml.rels",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/settings" Target="settings.xml"/>${media.map(m=>`<Relationship Id="${m.id}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${m.name}"/>`).join("")}</Relationships>`);
+  zip.file("word/settings.xml",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:settings xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:defaultTabStop w:val="720"/><w:compat><w:compatSetting w:name="compatibilityMode" w:uri="http://schemas.microsoft.com/office/word" w:val="15"/></w:compat></w:settings>`);
+  zip.file("word/styles.xml",stylesXML());
+  zip.file("word/document.xml",docXML);
+  media.forEach(m=>zip.file("word/media/"+m.name,m.blob));
+  return zip.generateAsync({type:"blob",mimeType:"application/vnd.openxmlformats-officedocument.wordprocessingml.document"});
+}
+
+/* ================= GIAO DIỆN ================= */
+const src=document.getElementById("src"),page=document.getElementById("page"),chips=document.getElementById("chips");
+const toastEl=document.getElementById("toast");let tt;
+function toast(msg){toastEl.innerHTML=msg;toastEl.classList.add("show");clearTimeout(tt);tt=setTimeout(()=>toastEl.classList.remove("show"),2800)}
+document.querySelectorAll(".btn").forEach(b=>b.addEventListener("pointerdown",e=>{const r=b.getBoundingClientRect(),s=Math.max(r.width,r.height),d=document.createElement("span");
+  d.className="ripple";d.style.cssText=`width:${s}px;height:${s}px;left:${e.clientX-r.left-s/2}px;top:${e.clientY-r.top-s/2}px`;b.appendChild(d);setTimeout(()=>d.remove(),600)}));
+let rt;src.addEventListener("input",()=>{clearTimeout(rt);rt=setTimeout(()=>{render();try{localStorage.setItem("iuiu-draft",src.value)}catch(e){}},220)});
+document.getElementById("btnSample").onclick=()=>{src.value=SAMPLE;render();toast("Đã nạp đề mẫu")};
+document.getElementById("btnClear").onclick=()=>{src.value="";render();src.focus()};
+const modal=document.getElementById("modal");document.getElementById("promptText").textContent=PROMPT;
+document.getElementById("btnPrompt").onclick=()=>{modal.hidden=false};
+document.getElementById("btnClose").onclick=()=>{modal.hidden=true};
+modal.addEventListener("click",e=>{if(e.target===modal)modal.hidden=true});
+document.getElementById("btnCopy").onclick=async()=>{try{await navigator.clipboard.writeText(PROMPT);toast("Đã copy prompt. Dán vào chat kèm ảnh đề nhé!");modal.hidden=true}
+  catch(e){const r=document.createRange();r.selectNodeContents(document.getElementById("promptText"));const s=getSelection();s.removeAllRanges();s.addRange(r);toast("Đã bôi đen prompt, bấm Ctrl+C để copy")}};
+let zoom=.8;const zw=document.getElementById("zw"),zv=document.getElementById("zVal");
+function setZoom(z){zoom=Math.min(1.6,Math.max(.4,z));zw.style.transform=`scale(${zoom})`;zw.style.marginBottom=`${(zoom-1)*29.7}cm`;zv.textContent=Math.round(zoom*100)+"%"}
+document.getElementById("zIn").onclick=()=>setZoom(zoom+.1);document.getElementById("zOut").onclick=()=>setZoom(zoom-.1);
+const btnEx=document.getElementById("btnExport");
+btnEx.onclick=async()=>{
+  if(!src.value.trim()){toast("Chưa có nội dung đề để xuất");return}
+  if(typeof JSZip==="undefined"){toast("Cần kết nối mạng lần đầu để tải bộ tạo Word");return}
+  const old=btnEx.innerHTML;btnEx.innerHTML=`<span class="spin"></span> Đang soạn…`;btnEx.disabled=true;
+  try{const blob=await buildDocx();const a=document.createElement("a");a.href=URL.createObjectURL(blob);
+    const first=(src.value.match(/PHẦN[^\n]*|Câu[^\n]*/)||["De"])[0];a.download="De_soan_lai_"+new Date().toISOString().slice(0,10)+".docx";
+    document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},2000);
+    celebrate();toast("✓ Đã tạo file Word");}
+  catch(e){console.error(e);toast("Lỗi khi tạo file: "+esc(e.message))}
+  finally{btnEx.innerHTML=old;btnEx.disabled=false}};
+function celebrate(){const r=btnEx.getBoundingClientRect();["H₂O","CO₂","O₂","NH₃","SO₄²⁻","C₂H₄","Fe³⁺","H⁺"].forEach((t,k)=>{const b=document.createElement("div");b.className="bubble";b.textContent=t;
+  b.style.left=(r.left+r.width/2-14+(Math.random()*40-20))+"px";b.style.top=(r.bottom)+"px";b.style.setProperty("--dx",(Math.random()*240-120)+"px");b.style.fontSize=(14+Math.random()*10)+"px";
+  b.style.animationDelay=(k*70)+"ms";b.style.top=(r.top+r.height)+"px";document.body.appendChild(b);setTimeout(()=>b.remove(),2400)})}
+/* Nền: vòng benzen trôi nhẹ */
+(function(){const c=document.getElementById("bg"),g=c.getContext("2d");let W,Hh,rings=[];const red=matchMedia("(prefers-reduced-motion: reduce)").matches;
+  function size(){W=c.width=innerWidth*devicePixelRatio;Hh=c.height=innerHeight*devicePixelRatio}size();addEventListener("resize",size);
+  for(let k=0;k<14;k++)rings.push({x:Math.random(),y:Math.random(),r:18+Math.random()*34,a:Math.random()*6,v:(Math.random()-.5)*.0016,s:.00012+Math.random()*.00025});
+  function hex(x,y,r,a){g.beginPath();for(let k=0;k<6;k++){const t=a+k*Math.PI/3;g.lineTo(x+r*Math.cos(t),y+r*Math.sin(t))}g.closePath();g.stroke();g.beginPath();g.arc(x,y,r*.55,0,7);g.stroke()}
+  function tick(){g.clearRect(0,0,W,Hh);g.strokeStyle="rgba(138,28,43,.07)";g.lineWidth=1.6*devicePixelRatio;
+    rings.forEach(o=>{o.y-=o.s;o.a+=o.v;if(o.y<-.1){o.y=1.1;o.x=Math.random()}hex(o.x*W,o.y*Hh,o.r*devicePixelRatio,o.a)});if(!red)requestAnimationFrame(tick)}tick()})();
+let saved=null;try{saved=localStorage.getItem("iuiu-draft")}catch(e){}
+src.value=saved&&saved.trim()?saved:SAMPLE;setZoom(innerWidth<900?.5:.8);render();
+</script>
+</body>
+</html>
