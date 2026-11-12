@@ -204,7 +204,13 @@ const PROMPT = `Bạn là người CHÉP LẠI đề Hoá. Đọc ảnh/PDF đ�
 
 GIỮ: tên PHẦN và hướng dẫn làm bài; Câu n (đánh số như đề, mỗi PHẦN có thể đánh lại từ 1); toàn bộ câu hỏi, dữ kiện, số liệu, bảng, các bước thí nghiệm, nhận định a/b/c/d, đáp án A/B/C/D; điểm số tự luận; dữ kiện chung trước Câu 1 (nguyên tử khối...).
 BỎ: tên trường, logo, mã đề, SBD, thời gian, năm học, header/footer, số trang, quảng cáo, chữ viết tay, dấu khoanh/tick, nháp.
-Ghép câu bị cắt qua trang/ảnh thành một dòng. Không sửa nội dung theo kiến thức (đề có thể cố ý sai). Chỗ không đọc chắc ghi [KHÔNG ĐỌC RÕ], không đoán dấu âm, số mũ, điện tích, chỉ số.
+Ghép câu bị cắt qua trang/ảnh thành một dòng. Không sửa nội dung theo kiến thức (đề có thể cố ý sai).
+
+CÔNG THỨC LÀ PHẦN QUAN TRỌNG NHẤT:
+- Công thức, phương trình, chỉ số, điện tích, mũi tên thường hiện dưới dạng hình/đối tượng nhúng (MathType, iu iu, Equation) chứ không phải chữ. VẪN PHẢI chép đầy đủ từng công thức theo ký hiệu bên dưới, tuyệt đối không bỏ qua hay thay bằng [KHÔNG ĐỌC RÕ].
+- Đọc kỹ chỉ số dưới/trên, dấu điện tích, nhãn trên/dưới mũi tên; dùng ngữ cảnh hoá học để đọc cho đúng (ví dụ SO_4^{2-}, H_2SO_4 đặc).
+- Chỉ ghi [KHÔNG ĐỌC RÕ] cho đúng ký tự/cụm thật sự không nhìn thấy (bị che, nhoè hẳn, mất góc ảnh). Chữ nhỏ hay hơi mờ vẫn phải đọc. Mỗi [KHÔNG ĐỌC RÕ] chỉ thay một cụm nhỏ, không thay cả câu.
+- Nếu là file Word mà bạn KHÔNG nhìn thấy được các công thức nhúng (chỉ đọc được phần chữ), đừng chép đề; chỉ trả lời đúng một câu: "Không đọc được công thức trong file Word này, hãy gửi bản PDF (Tệp > Lưu thành PDF) hoặc ảnh chụp."
 
 KHUÔN — mỗi mục MỘT dòng:
 PHẦN I. <tên phần>
@@ -687,7 +693,7 @@ function vfOleBin(doc,L){const enc=new TextEncoder();
     {name:"\u0003ObjInfo",data:hex2u8("000003000d00")},
     {name:"Formula.json",data:enc.encode(JSON.stringify(doc))},
     {name:"Layout.json",data:enc.encode(JSON.stringify({baselineDip:+L.base.toFixed(4),widthDip:+L.w.toFixed(4),heightDip:+L.h.toFixed(4),renderer:"DirectWrite-outline-1"}))}])}
-const APP_VER="1.6 · OLE";
+const APP_VER="1.7 · OLE";
 async function buildDocx(){
   const blocks=parse(src.value);const media=[],oles=[];let rid=10,pid=1,shapeDefined=false;const useOle=true;
   const runT=(p,extra="")=>{let r="";if(p.b)r+="<w:b/>";if(p.i)r+="<w:i/>";if(p.unclear)r+=`<w:highlight w:val="yellow"/>`;if(p.va)r+=`<w:vertAlign w:val="${p.va==="sub"?"subscript":"superscript"}"/>`;r+=extra;
