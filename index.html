@@ -7,6 +7,470 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script>
+/* ===== Đọc file Word (.docx): chữ, bảng, ảnh, MathType (MTEF), iu iu (Formula.json), OMML ===== */
+const DocImport = (() => {
+  // ---------- CFB (OLE compound file) reader ----------
+  function cfbRead(u8) {
+    const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+    const u16 = o => dv.getUint16(o, true), u32 = o => dv.getUint32(o, true);
+    if (u32(0) !== 0xE011CFD0) throw new Error('not CFB');
+    const ss = 1 << u16(30), ms = 1 << u16(32);
+    const nFat = u32(44), dir0 = u32(48), cutoff = u32(56), mf0 = u32(60), difat0 = u32(68);
+    const sec = i => 512 + i * ss;
+    const fatSecs = [];
+    for (let i = 0; i < 109 && fatSecs.length < nFat; i++) fatSecs.push(u32(76 + i * 4));
+    let d = difat0;
+    while (fatSecs.length < nFat && d < 0xFFFFFFFA) {
+      for (let i = 0; i < ss / 4 - 1 && fatSecs.length < nFat; i++) fatSecs.push(u32(sec(d) + i * 4));
+      d = u32(sec(d) + ss - 4);
+    }
+    const fat = [];
+    for (const s of fatSecs) for (let i = 0; i < ss / 4; i++) fat.push(u32(sec(s) + i * 4));
+    const chain = (s, f) => { const r = []; let g = 0; while (s < 0xFFFFFFFA && g++ < 1e6) { r.push(s); s = f[s]; } return r; };
+    const readBig = s => { const c = chain(s, fat), out = new Uint8Array(c.length * ss); c.forEach((x, i) => out.set(u8.subarray(sec(x), sec(x) + ss), i * ss)); return out; };
+    const dirB = readBig(dir0), ddv = new DataView(dirB.buffer);
+    const ents = [];
+    for (let o = 0; o + 128 <= dirB.length; o += 128) {
+      const nl = ddv.getUint16(o + 64, true);
+      let name = ''; for (let i = 0; i < Math.max(0, nl / 2 - 1); i++) name += String.fromCharCode(ddv.getUint16(o + i * 2, true));
+      ents.push({ name, type: dirB[o + 66], start: ddv.getUint32(o + 116, true), size: ddv.getUint32(o + 120, true) });
+    }
+    const root = ents[0];
+    const mini = root && root.type === 5 ? readBig(root.start) : new Uint8Array(0);
+    const mfat = []; if (mf0 < 0xFFFFFFFA) { const b = readBig(mf0), v = new DataView(b.buffer); for (let i = 0; i < b.length / 4; i++) mfat.push(v.getUint32(i * 4, true)); }
+    const get = name => {
+      const e = ents.find(x => x.type === 2 && x.name === name); if (!e) return null;
+      if (e.size < cutoff) { const c = chain(e.start, mfat), out = new Uint8Array(c.length * ms); c.forEach((x, i) => out.set(mini.subarray(x * ms, x * ms + ms), i * ms)); return out.subarray(0, e.size); }
+      return readBig(e.start).subarray(0, e.size);
+    };
+    return { names: ents.filter(e => e.type === 2).map(e => e.name), get };
+  }
+
+  // ---------- Bảng mã tiếng Việt cũ ----------
+  const TCVN3 = {0xA1:'Ă',0xA2:'Â',0xA3:'Ê',0xA4:'Ô',0xA5:'Ơ',0xA6:'Ư',0xA7:'Đ',0xA8:'ă',0xA9:'â',0xAA:'ê',0xAB:'ô',0xAC:'ơ',0xAD:'ư',0xAE:'đ',
+    0xB5:'à',0xB6:'ả',0xB7:'ã',0xB8:'á',0xB9:'ạ',0xBB:'ằ',0xBC:'ẳ',0xBD:'ẵ',0xBE:'ắ',0xC6:'ặ',0xC7:'ầ',0xC8:'ẩ',0xC9:'ẫ',0xCA:'ấ',0xCB:'ậ',
+    0xCC:'è',0xCE:'ẻ',0xCF:'ẽ',0xD0:'é',0xD1:'ẹ',0xD2:'ề',0xD3:'ể',0xD4:'ễ',0xD5:'ế',0xD6:'ệ',0xD7:'ì',0xD8:'ỉ',0xDC:'ĩ',0xDD:'í',0xDE:'ị',
+    0xDF:'ò',0xE1:'ỏ',0xE2:'õ',0xE3:'ó',0xE4:'ọ',0xE5:'ồ',0xE6:'ổ',0xE7:'ỗ',0xE8:'ố',0xE9:'ộ',0xEA:'ờ',0xEB:'ở',0xEC:'ỡ',0xED:'ớ',0xEE:'ợ',
+    0xEF:'ù',0xF1:'ủ',0xF2:'ũ',0xF3:'ú',0xF4:'ụ',0xF5:'ừ',0xF6:'ử',0xF7:'ữ',0xF8:'ứ',0xF9:'ự',0xFA:'ỳ',0xFB:'ỷ',0xFC:'ỹ',0xFD:'ý',0xFE:'ỵ'};
+  const cp1252 = {0x80:0x20AC,0x82:0x201A,0x83:0x192,0x84:0x201E,0x85:0x2026,0x86:0x2020,0x87:0x2021,0x88:0x2C6,0x89:0x2030,0x8A:0x160,0x8B:0x2039,0x8C:0x152,0x8E:0x17D,
+    0x91:0x2018,0x92:0x2019,0x93:0x201C,0x94:0x201D,0x95:0x2022,0x96:0x2013,0x97:0x2014,0x98:0x2DC,0x99:0x2122,0x9A:0x161,0x9B:0x203A,0x9C:0x153,0x9E:0x17E,0x9F:0x178};
+  const toByte = c => { const n = c.charCodeAt(0); if (n < 256) return n; for (const k in cp1252) if (cp1252[k] === n) return +k; return n; };
+  function tcvn3(s, upper) { let r = ''; for (const c of s) { const b = toByte(c), t = TCVN3[b]; r += t ? (upper ? t.toUpperCase() : t) : c; } return r; }
+  // VNI: nguyên âm + ký tự dấu
+  const VNI_MARK = {0xF9:'́',0xF8:'̀',0xFB:'̉',0xF5:'̃',0xEF:'̣',0xD9:'́',0xD8:'̀',0xDB:'̉',0xD5:'̃',0xCF:'̣',
+    0xE2:'̂',0xC2:'̂',0xEA:'̆',0xCA:'̆',0xE1:'̂́',0xC1:'̂́',0xE0:'̂̀',0xC0:'̂̀',0xE5:'̂̉',0xC5:'̂̉',
+    0xE3:'̂̃',0xC3:'̂̃',0xE4:'̣̂',0xC4:'̣̂',0xE9:'̆́',0xC9:'̆́',0xE8:'̆̀',0xC8:'̆̀',
+    0xFA:'̆̉',0xDA:'̆̉',0xFC:'̆̃',0xDC:'̆̃',0xEB:'̣̆',0xCB:'̣̆'};
+  function vni(s) {
+    let r = '';
+    for (const c of s) {
+      const b = toByte(c);
+      if (b === 0xF1) r += 'đ'; else if (b === 0xD1) r += 'Đ'; else if (b === 0xF6) r += 'ư'; else if (b === 0xD6) r += 'Ư'; else if (b === 0xF4) r += 'ơ'; else if (b === 0xD4) r += 'Ơ';
+      else if (b === 0xEC) r += 'ì'; else if (b === 0xCC) r += 'Ì'; else if (b === 0xF2) r += 'ỉ'; else if (b === 0xD2) r += 'Ỉ'; else if (b === 0xF3) r += 'ĩ'; else if (b === 0xD3) r += 'Ĩ'; else if (b === 0xEE) r += 'ị'; else if (b === 0xCE) r += 'Ị';
+      else if (VNI_MARK[b] && /[aeiouyAEIOUYơưƠƯ]$/.test(r)) r += VNI_MARK[b];
+      else r += c;
+    }
+    return r.normalize('NFC');
+  }
+  function legacy(font, s) {
+    if (!font) return s;
+    if (/^\.?vn/i.test(font) && !/^vni/i.test(font)) return tcvn3(s, /H$/.test(font));
+    if (/^vni/i.test(font)) return vni(s);
+    return s;
+  }
+
+  // ---------- MTEF (MathType) ----------
+  const SYMMAP = {0x2192:'->',0x2190:'<-',0x21C4:'<=>',0x21CC:'<=>',0x21CB:'<=>',0x2212:'-',0x2219:'·',0x22C5:'·',0x2032:"'",0x00B0:'°',0xF0B0:'°',0x2009:' ',0x200A:'',0x2003:' ',0x2002:' ',0xEF04:' ',0xEF05:' ',0xEF08:'',0xEF02:' ',0xEF03:' ',0xEF00:'',0xEF01:''};
+  const SYMBOL_FONT = {0x61:'α',0x62:'β',0x63:'χ',0x64:'δ',0x65:'ε',0x66:'φ',0x67:'γ',0x68:'η',0x69:'ι',0x6B:'κ',0x6C:'λ',0x6D:'μ',0x6E:'ν',0x70:'π',0x71:'θ',0x72:'ρ',0x73:'σ',0x74:'τ',0x75:'υ',0x77:'ω',0x78:'ξ',0x79:'ψ',0x7A:'ζ',
+    0x44:'Δ',0x47:'Γ',0x4C:'Λ',0x50:'Π',0x53:'Σ',0x57:'Ω',0x46:'Φ',0x51:'Θ',0x59:'Ψ',0x58:'Ξ',0xB0:'°',0xB1:'±',0xB4:'×',0xB8:'÷',0xAE:'→',0xAC:'←',0xAB:'↔',0xA3:'≤',0xB3:'≥',0xB9:'≠',0xBB:'≈',0xBA:'≡',0xD7:'·',0x2D:'−',0xA2:"'",0xA5:'∞',0xDE:'⇒',0xDB:'⇔',0xAD:'↑',0xAF:'↓'};
+
+  function parseMTEF(b) {
+    let p = 0;
+    const byte = () => b[p++], u16 = () => { const v = b[p] | (b[p + 1] << 8); p += 2; return v; };
+    const uint = () => { const v = byte(); return v === 255 ? u16() : v; };
+    const cstr = () => { let s = ''; while (p < b.length && b[p]) s += String.fromCharCode(b[p++]); p++; return s; };
+    const ver = byte();
+    const fontDefs = [null], styleDefs = [null];
+    let prefsStyles = [];
+    if (ver >= 5) { byte(); byte(); byte(); byte(); cstr(); byte(); }
+    else { byte(); byte(); byte(); byte(); }
+    const nudge = o => { if (o & 8) { const a = byte(), c = byte(); if (a === 128 && c === 128) p += 4; } };
+    const skipNibbles = n => { let cnt = 0, hi = true, cur = 0; // n dims; each ends at nibble 0xF
+      while (cnt < n && p < b.length) { const nb = hi ? (b[p] >> 4) : (b[p] & 15); if (!hi) p++; hi = !hi; if (nb === 0xF) cnt++; }
+      if (!hi) p++; };
+    // returns list of items: {t:'char',ch,tf,font,embell:[]}, {t:'tmpl',sel,v,slots:[]}, {t:'line',items}, {t:'pile',lines}, {t:'matrix',..}
+    function readList(stopAtEnd = true) {
+      const out = [];
+      while (p < b.length) {
+        let tag = byte(), opt = 0;
+        if (ver < 5) { opt = tag >> 4; tag &= 15; }
+        if (tag === 0) return out;
+        const r = rec(tag, opt);
+        if (r) out.push(r);
+      }
+      return out;
+    }
+    function readLine(opt) {
+      nudge(opt);
+      if (ver >= 5) { if (opt & 4) uint(); if (opt & 2) { byte(); /*RULER tag*/ ruler(); } if (opt & 1) return { t: 'line', items: [], nul: true }; }
+      else { if (opt & 4) u16(); if (opt & 1) return { t: 'line', items: [], nul: true }; if (opt & 2) { byte(); ruler(); } }
+      return { t: 'line', items: readList() };
+    }
+    function ruler() { const n = byte(); p += n * 3; }
+    function rec(tag, opt) {
+      if (ver >= 5 && ((tag >= 1 && tag <= 6) || tag === 16 || tag === 18)) opt = byte();
+      switch (tag) {
+        case 1: return readLine(opt);
+        case 2: {
+          nudge(opt);
+          let tf = byte() - 128, code = 0, pos = null;
+          if (ver >= 5) { if (!(opt & 0x20)) code = u16(); if (opt & 4) pos = byte(); if (opt & 0x10) pos = u16(); }
+          else code = u16();
+          const ch = { t: 'char', tf, code, pos, embell: [] };
+          if (opt & (ver >= 5 ? 1 : 2)) { const e = readList(); ch.embell = e.filter(x => x.t === 'embell').map(x => x.e); }
+          return ch;
+        }
+        case 3: {
+          nudge(opt);
+          const sel = byte(); let v = byte(); if (ver >= 5 && (v & 0x80)) v = (v & 0x7F) | (byte() << 8);
+          if (ver >= 5) byte(); else if (ver < 5) { /* v3: variation 1 byte; options 1 byte */ byte(); }
+          const slots = readList();
+          if (ver < 5) { const m = {13: [10, 0], 14: [11, 0], 15: [29, 0], 18: [14, 0x10], 19: [14, 0x20], 20: [14, 0x30]}[sel];
+            if (m) return { t: 'tmpl', sel: m[0], v: m[0] === 14 ? m[1] : v, slots };
+            if (sel >= 9 && sel <= 12) return { t: 'tmpl', sel: 1, v, slots };
+            if (sel > 12) return { t: 'tmpl', sel: 99, v, slots }; }
+          return { t: 'tmpl', sel, v, slots };
+        }
+        case 4: { nudge(opt); byte(); byte(); if (opt & 2) { byte(); ruler(); } return { t: 'pile', lines: readList() }; }
+        case 5: {
+          nudge(opt); byte(); byte(); byte(); const rows = byte(), cols = byte();
+          p += Math.ceil(2 * (rows + 1) / 8) + Math.ceil(2 * (cols + 1) / 8);
+          return { t: 'matrix', rows, cols, cells: readList() };
+        }
+        case 6: { nudge(opt); return { t: 'embell', e: byte() }; }
+        case 7: { ruler(); return null; }
+        case 8: { const fi = uint(); const st = byte(); styleDefs.push({ fi, st }); return null; }
+        case 9: { if (ver >= 5) { const l = byte(); if (l === 101) u16(); else if (l === 100) { byte(); u16(); } else byte(); } else { const l = byte(); if (l === 101) u16(); else if (l === 100) { byte(); u16(); } else byte(); } return null; }
+        case 10: case 11: case 12: case 13: case 14: return null;
+        case 15: uint(); return null;
+        case 16: { const n = (opt & 1) ? 4 : 3; p += n * 2; if (opt & 4) cstr(); return null; }
+        case 17: { if (ver >= 5) { uint(); fontDefs.push(cstr()); } else { u16(); fontDefs.push(cstr()); } return null; }
+        case 18: { const n1 = uint(); skipNibbles(n1); const n2 = uint(); skipNibbles(n2); const n3 = uint();
+          prefsStyles = []; for (let i = 0; i < n3; i++) { const f = byte(); if (f) { prefsStyles.push({ fi: f, st: byte() }); } else prefsStyles.push(null); } return null; }
+        case 19: cstr(); return null;
+        default:
+          if (tag >= 100) { const n = uint(); p += n; return null; }
+          throw new Error('MTEF tag ' + tag + ' @' + p);
+      }
+    }
+    // v3 font record (tag 8 in v3 = FONT): tface(1), style(1), name
+    if (ver < 5) {
+      // in v3, tag 8 = FONT, 9 = SIZE, 10-14 sizes
+      const oldRec = rec;
+      rec = function (tag, opt) {
+        if (tag === 8) { const tf = byte() - 128; byte(); const nm = cstr(); fontDefs.push(nm); styleDefs.push({ fi: fontDefs.length - 1, tf }); return null; }
+        if (tag === 9) { const l = byte(); if (l === 101) u16(); else if (l === 100) { byte(); u16(); } else byte(); return null; }
+        if (tag >= 10 && tag <= 14) return null;
+        return oldRec(tag, opt);
+      };
+    }
+    const items = readList();
+    const fontOf = tf => {
+      if (tf < 0) { const s = styleDefs[-tf]; return s ? fontDefs[s.fi] : null; }
+      if (ver < 5) { const s = styleDefs.find(x => x && x.tf === tf); return s ? fontDefs[s.fi] : null; }
+      const s = prefsStyles[tf - 1]; return s ? fontDefs[s.fi] : null;
+    };
+    return { ver, items, fontOf };
+  }
+
+  // MTEF -> web markup
+  function mtefToMarkup(bytes) {
+    const { items, fontOf } = parseMTEF(bytes);
+    const charText = c => {
+      const font = fontOf(c.tf) || '';
+      let s;
+      if (/^symbol$/i.test(font) && c.pos != null && SYMBOL_FONT[c.pos]) s = SYMBOL_FONT[c.pos];
+      else if (c.pos != null && /^(\.?vn|vni)/i.test(font)) s = legacy(font, String.fromCharCode(c.pos));
+      else if (SYMMAP[c.code] !== undefined) s = SYMMAP[c.code];
+      else if (c.code >= 0xE000 && c.code < 0xF900) s = c.pos != null && /^symbol$/i.test(font) ? (SYMBOL_FONT[c.pos] || '') : '';
+      else s = String.fromCodePoint(c.code);
+      if (/^(\.?vn|vni)/i.test(font) && c.pos == null) s = legacy(font, s);
+      for (const e of c.embell) { if (e === 5) s += "'"; else if (e === 6) s += "''"; else if (e === 2) s += '̇'; }
+      return s;
+    };
+    const grp = s => (/^[A-Za-z0-9]$/.test(s) ? s : '{' + s + '}');
+    const lineMk = it => it && it.t === 'line' ? seq(it.items) : it ? seq([it]) : '';
+    function arrowOf(t) {
+      const v = t.v, slots = t.slots.filter(x => x.t === 'line');
+      const top = lineMk(slots[0]).trim(), bot = lineMk(slots[1]).trim();
+      const harp = v & 2, dbl = v & 1, left = v & 0x10, right = v & 0x20;
+      const lab = top || bot ? '[' + top + (bot ? '|' + bot : '') + ']' : '';
+      if (harp || (dbl && left && right) || dbl) return lab ? '<=' + lab + '=>' : '<=>';
+      if (left && right) return lab ? '<-' + lab + '->' : '<-->';
+      if (left) return lab ? '<-' + lab + '-' : '<--';
+      return lab ? '-' + lab + '->' : '-->';
+    }
+    function seq(list) {
+      let out = '';
+      for (let i = 0; i < list.length; i++) {
+        const it = list[i];
+        if (it.t === 'char') out += charText(it);
+        else if (it.t === 'line') out += seq(it.items);
+        else if (it.t === 'pile') out += it.lines.map(lineMk).join(' ; ');
+        else if (it.t === 'matrix') out += it.cells.map(lineMk).join(' ');
+        else if (it.t === 'tmpl') {
+          const s = it.sel, sl = it.slots, L = sl.filter(x => x.t === 'line'), C = sl.filter(x => x.t === 'char');
+          if (s >= 27 && s <= 29) {
+            const sub = lineMk(L[0]).trim(), sup = lineMk(L[1]).trim();
+            if (it.v & 1) { // tiền chỉ số: gắn vào ký tự kế tiếp
+              out += (sup ? '^' + grp(sup) : '') + (sub ? '_' + grp(sub) : '');
+            } else out += (sub ? '_' + grp(sub) : '') + (sup ? (sup === '°' || sup === 'o' || sup === '0' && false ? '^o' : '^' + grp(sup)) : '');
+          } else if (s <= 9) {
+            const open = C[0] ? charText(C[0]) : '([{|‖⌊⌈'[s] || '(', close = C[1] ? charText(C[1]) : ')]}|‖⌋⌉'[s] || ')';
+            out += open + lineMk(L[0]) + close;
+          } else if (s === 10) { const r = lineMk(L[0]), n = lineMk(L[1]).trim(); out += (n ? '∛' : '√') + '(' + r + ')'; }
+          else if (s === 11) { out += '(' + lineMk(L[0]) + ')/(' + lineMk(L[1]) + ')'; }
+          else if (s === 14) out += ' ' + arrowOf(it) + ' ';
+          else if (s === 30 || s === 31 || s === 32 || s === 12 || s === 13) out += lineMk(L[0]);
+          else out += L.map(lineMk).join(' ');
+        }
+      }
+      return out;
+    }
+    let s = seq(items);
+    // Gom khoảng trắng; dấu độ dạng ^o
+    s = s.replace(/\^\{?°\}?/g, '^o').replace(/\^\{?0\}?(?![0-9,.])/g, '^o').replace(/\^\{?0\}?(?=[^0-9]|$)/g, (m) => m).replace(/[  ]+/g, ' ').trim();
+    s = s.replace(/→/g, '-->').replace(/←/g, '<--');
+    return s;
+  }
+
+  function oleToMarkup(u8) {
+    let c; try { c = cfbRead(u8); } catch (e) { return null; }
+    if (c.names.includes('Formula.json')) {
+      try { return vfJsonToMarkup(JSON.parse(new TextDecoder().decode(c.get('Formula.json')))); } catch (e) { return null; }
+    }
+    const en = c.get('Equation Native');
+    if (en) {
+      const hdr = en[0] | (en[1] << 8);
+      try { return mtefToMarkup(en.subarray(hdr || 28)); } catch (e) { console.warn('MTEF', e); return null; }
+    }
+    return null;
+  }
+
+  // ---------- iu iu Formula.json ----------
+  function vfJsonToMarkup(doc) {
+    const grp = s => (/^[A-Za-z0-9]$/.test(s) ? s : '{' + s + '}');
+    const n2 = n => {
+      if (!n) return '';
+      const k = n.kind, ch = n.children || [];
+      if (k === 'run' || k === 'Run' || n.text !== undefined && !ch.length) return n.text || '';
+      if (k === 'row' || k === 'Row') return ch.map(n2).join('');
+      if (k === 'script' || k === 'Script') {
+        const base = n2(ch[0]), sup = n2(ch[1]), sub = n2(ch[2]);
+        const sc = (sub ? '_' + grp(sub) : '') + (sup ? (sup === 'o' || sup === '°' ? '^o' : '^' + grp(sup)) : '');
+        return n.variant === 1 ? sc + base : base + sc;
+      }
+      if (k === 'arrow' || k === 'Arrow') {
+        const a = n2(ch[0]).trim(), b = n2(ch[1]).trim(), lab = a || b ? '[' + a + (b ? '|' + b : '') + ']' : '';
+        const v = n.variant || 0;
+        if (v === 3 || v === 4) return ' ' + (lab ? '<=' + lab + '=>' : '<=>') + ' ';
+        if (v === 1) return ' ' + (lab ? '<-' + lab + '-' : '<--') + ' ';
+        if (v === 2) return ' ' + (lab ? '<-' + lab + '->' : '<-->') + ' ';
+        return ' ' + (lab ? '-' + lab + '->' : '-->') + ' ';
+      }
+      if (k === 'fraction' || k === 'Fraction') return '(' + n2(ch[0]) + ')/(' + n2(ch[1]) + ')';
+      if (k === 'root' || k === 'Root') return '√(' + n2(ch[0]) + ')';
+      if (k === 'fence' || k === 'Fence') return '(' + ch.map(n2).join('') + ')';
+      return ch.map(n2).join(' ');
+    };
+    return n2(doc.root).replace(/ +/g, ' ').trim();
+  }
+
+  // ---------- OMML (công thức Word) ----------
+  function ommlToMarkup(el) {
+    const attr = (e, n) => { for (const a of e.attributes) if (a.localName === n) return a.value; return null; };
+    const grp = s => (/^[A-Za-z0-9]$/.test(s) ? s : '{' + s + '}');
+    const kids = (e, n) => [...e.children].filter(c => c.localName === n);
+    const one = (e, n) => kids(e, n)[0];
+    const walk = e => {
+      let s = '';
+      for (const c of e.children) {
+        const n = c.localName;
+        if (n === 'r') s += [...c.getElementsByTagNameNS('*', 't')].map(t => t.textContent).join('');
+        else if (n === 'sSub') s += walk(one(c, 'e')) + '_' + grp(walk(one(c, 'sub')));
+        else if (n === 'sSup') { const u = walk(one(c, 'sup')); s += walk(one(c, 'e')) + (u === 'o' || u === '°' ? '^o' : '^' + grp(u)); }
+        else if (n === 'sSubSup') s += walk(one(c, 'e')) + '_' + grp(walk(one(c, 'sub'))) + '^' + grp(walk(one(c, 'sup')));
+        else if (n === 'sPre') s += '^' + grp(walk(one(c, 'sup'))) + '_' + grp(walk(one(c, 'sub'))) + walk(one(c, 'e'));
+        else if (n === 'f') s += '(' + walk(one(c, 'num')) + ')/(' + walk(one(c, 'den')) + ')';
+        else if (n === 'rad') s += '√(' + walk(one(c, 'e')) + ')';
+        else if (n === 'd') s += '(' + kids(c, 'e').map(walk).join(', ') + ')';
+        else if (n === 'groupChr') {
+          const pr = one(c, 'groupChrPr'), ce = pr && [...pr.children].find(x => x.localName === 'chr');
+          const chr = ce ? attr(ce, 'val') : '⏟', lab = walk(one(c, 'e')).trim();
+          if (/[→⟶⇢]/.test(chr)) s += ' -[' + lab + ']-> '; else if (/[⇌⇄⥂]/.test(chr)) s += ' <=[' + lab + ']=> '; else if (/[←⟵]/.test(chr)) s += ' <-[' + lab + ']- '; else s += lab;
+        }
+        else if (n === 'limUpp' || n === 'limLow') {
+          const base = walk(one(c, 'e')).trim(), lim = one(c, 'lim') ? walk(one(c, 'lim')).trim() : '';
+          const m = base.match(/^(?:-\[(.*?)\]->|-->|→)$/);
+          if (m) { const t = m[1] || ''; s += n === 'limUpp' ? ' -[' + (lim || t) + (t && lim ? '' : '') + ']-> ' : ' -[' + t + '|' + lim + ']-> '; }
+          else if (/^(<=>|⇌|<=\[.*\]=>)$/.test(base)) s += n === 'limUpp' ? ' <=[' + lim + ']=> ' : ' <=[|' + lim + ']=> ';
+          else s += base + lim;
+        }
+        else if (['e', 'num', 'den', 'sub', 'sup', 'oMath', 'oMathPara', 'box', 'borderBox', 'acc', 'bar', 'func', 'fName', 'nary', 'eqArr', 'm', 'mr'].includes(n)) s += walk(c);
+      }
+      return s;
+    };
+    return walk(el).replace(/→/g, '-->').replace(/⇌/g, '<=>').replace(/ +/g, ' ').trim();
+  }
+
+  // ---------- Dọn văn bản cho đúng khuôn ----------
+  function tidy(lines) {
+    let L = lines.join('\n').replace(/\^\{?[∘˚º°]\}?/g, '^o').replace(/[ ]*→[ ]*/g, ' --> ').replace(/[ ]*⇌[ ]*/g, ' <=> ').split('\n').map(x => x.replace(/ {2,}/g, ' ').trim());
+    // bỏ phần đầu đề (tên trường, họ tên, số báo danh...)
+    const start = L.findIndex(x => /^(Cho (biết )?(nguyên tử khối|NTK)|PHẦN\s+[IVX\d]|Câu\s+\d)/i.test(x));
+    if (start > 0) L = L.slice(0, start).filter(x => x && !x.startsWith('|') && !/^(Họ,? và tên|Họ tên|Số báo danh|Mã đề)/i.test(x) && !/^[-—―_.…\s]+$/.test(x)).concat(L.slice(start));
+    L = L.map(x => x.replace(/\s*(<=\[[^\]]*\]=>|-\[[^\]]*\]->|<-\[[^\]]*\]-(?!>)|<-->|<=>|-->|<--)\s*/g, ' $1 ').trim());
+    const out = [];
+    for (let i = 0; i < L.length; i++) {
+      let x = L[i];
+      const prev = out.filter(Boolean).slice(-1)[0] || '';
+      x = x.replace(/^(Câu\s+\d+)\s*[.:]\s*/, '$1: ');
+      x = x.replace(/^([A-D])\.(?=\S)/, '$1. ').replace(/\s+(?=[B-D]\.\s)/g, ' ');
+      if (/^Thí sinh/i.test(x) && /^PHẦN/i.test(prev)) x = 'HD: ' + x;
+      const core = x.replace(/-\[[^\]]*\]->|<=\[[^\]]*\]=>|<-\[[^\]]*\]-/g, ' → ');
+      if (!/^(Câu|[A-D]\.|[a-e]\)|\||\[|PT:|HD:)/.test(x) && /-->|<=>|<--|<-->|-\[|<=\[|<-\[/.test(x) && !/[àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ]/i.test(core.replace(/\((?:s|l|g|aq|r|k|dd|đặc|loãng|rắn|khí|dư)\)/gi, '')) && !/:\s*$/.test(x))
+        x = 'PT: ' + x.replace(/^\(\d+\)\s*/, m => m);
+      if (/^[A-D]\.\s/.test(x)) { out.push(...x.split(/\s+(?=[B-D]\.\s)/)); continue; }
+      out.push(x);
+    }
+    return out.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+  }
+
+  // ---------- document.xml -> markup ----------
+  async function docxToMarkup(file, opts = {}) {
+    const zip = await JSZip.loadAsync(file);
+    const rd = p => zip.file(p) ? zip.file(p).async('string') : '';
+    const xml = await rd('word/document.xml');
+    const relsX = await rd('word/_rels/document.xml.rels');
+    const P = new DOMParser();
+    const rels = {};
+    for (const r of P.parseFromString(relsX, 'application/xml').getElementsByTagName('Relationship')) rels[r.getAttribute('Id')] = r.getAttribute('Target');
+    const doc = P.parseFromString(xml, 'application/xml');
+    const body = doc.getElementsByTagNameNS('*', 'body')[0];
+    const images = []; // {name, blob}
+    const stats = { ole: 0, oleOk: 0, img: 0, omml: 0 };
+    const oleCache = {};
+    const relPath = id => { const t = rels[id]; return t ? 'word/' + t.replace(/^\/?word\//, '').replace(/^\.\//, '') : null; };
+    const attr = (e, n) => { for (const a of e.attributes) if (a.localName === n) return a.value; return null; };
+    const loadImage = async (rid, wPt) => {
+      const p = relPath(rid); if (!p || !zip.file(p)) return null;
+      let ext = p.split('.').pop().toLowerCase();
+      if (ext === 'wmf' || ext === 'emf') return null;
+      const blob = await zip.file(p).async('blob');
+      images.push({ wPt, name: p.split('/').pop(), blob: new Blob([blob], { type: 'image/' + (ext === 'jpg' ? 'jpeg' : ext) }) });
+      stats.img++;
+      return images.length;
+    };
+    const oleMarkup = async (rid) => {
+      const p = relPath(rid); if (!p || !zip.file(p)) return null;
+      if (oleCache[p] !== undefined) return oleCache[p];
+      const u8 = await zip.file(p).async('uint8array');
+      return (oleCache[p] = oleToMarkup(u8));
+    };
+    // chuyển 1 run hoặc phần tử trong đoạn
+    async function para(pEl) {
+      let s = '', pend = '', pva = null;
+      const flushV = () => {
+        if (!pend) return;
+        const m = pend.match(/^([\s]*)(.*?)([\s.,;:]*)$/s);
+        let t = m[2];
+        if (!t) { s += pend; pend = ''; pva = null; return; }
+        s += m[1];
+        const g = /^[A-Za-z0-9]$/.test(t) ? t : '{' + t + '}';
+        if (pva === 'subscript') s += '_' + g;
+        else s += (/^[o0°º˚∘]$/.test(t)) ? '^o' : '^' + g;
+        s += m[3]; pend = ''; pva = null;
+      };
+      const add = (t, va, font) => {
+        if (!t) return;
+        t = legacy(font, t);
+        if (va === 'subscript' || va === 'superscript') { if (pva && pva !== va) flushV(); pva = va; pend += t; return; }
+        flushV(); s += t;
+      };
+      const raw = t => { flushV(); s += t; };
+      async function walk(el) {
+        for (const c of el.children) {
+          const n = c.localName;
+          if (n === 'r') {
+            const rPr = [...c.children].find(x => x.localName === 'rPr');
+            let va = null, font = null, bold = false, ital = false;
+            if (rPr) for (const q of rPr.children) {
+              if (q.localName === 'vertAlign') va = attr(q, 'val');
+              if (q.localName === 'rFonts') font = attr(q, 'ascii') || attr(q, 'hAnsi');
+            }
+            for (const q of c.children) {
+              const m = q.localName;
+              if (m === 't') add(q.textContent, va, font);
+              else if (m === 'tab') raw(' ');
+              else if (m === 'br') raw('\n');
+              else if (m === 'sym') { const code = parseInt(attr(q, 'char'), 16) & 0xFF; const sf = attr(q, 'font') || ''; raw(/wingdings/i.test(sf) ? ' --> ' : (SYMBOL_FONT[code] || '')); }
+              else if (m === 'object') {
+                const ole = [...q.getElementsByTagNameNS('*', 'OLEObject')][0];
+                if (ole) {
+                  stats.ole++;
+                  const mk = await oleMarkup(attr(ole, 'id'));
+                  if (mk != null && mk !== '') { stats.oleOk++; raw(mk); }
+                  else raw('[CÔNG THỨC]');
+                } else {
+                  const im = q.getElementsByTagNameNS('*', 'imagedata')[0];
+                  if (im) { const k = await loadImage(attr(im, 'id')); raw(k ? `\n[HÌNH: ảnh ${k} trong file Word]\n` : ''); }
+                }
+              } else if (m === 'drawing' || m === 'pict') {
+                const bl = q.getElementsByTagNameNS('*', 'blip')[0] || q.getElementsByTagNameNS('*', 'imagedata')[0];
+                if (bl) { const ex = q.getElementsByTagNameNS('*', 'extent')[0]; const k = await loadImage(attr(bl, 'embed') || attr(bl, 'id'), ex ? +attr(ex, 'cx') / 12700 : null); if (k) raw(`\n[HÌNH: ảnh ${k} trong file Word]\n`); }
+                else raw('\n[HÌNH: hình vẽ trong file Word]\n');
+              } else if (m === 'AlternateContent') {
+                const fb = [...q.children].find(x => x.localName === 'Choice') || [...q.children].find(x => x.localName === 'Fallback');
+                if (fb) await walk({ children: [{ localName: 'r', children: fb.children }] });
+              }
+            }
+          } else if (n === 'oMath' || n === 'oMathPara') { stats.omml++; raw(ommlToMarkup(c)); }
+          else if (['hyperlink', 'smartTag', 'ins', 'sdt', 'sdtContent', 'fldSimple', 'customXml'].includes(n)) await walk(c);
+        }
+      }
+      await walk(pEl);
+      flushV();
+      return s;
+    }
+    const lines = [];
+    for (const el of body.children) {
+      if (el.localName === 'p') {
+        const t = (await para(el)).replace(/[ \t ]+/g, ' ').trim();
+        for (const ln of t.split('\n')) lines.push(ln.trim());
+      } else if (el.localName === 'tbl') {
+        lines.push('');
+        for (const tr of [...el.children].filter(x => x.localName === 'tr')) {
+          const cells = [];
+          for (const tc of [...tr.children].filter(x => x.localName === 'tc')) {
+            const ps = [];
+            for (const pp of [...tc.children].filter(x => x.localName === 'p')) ps.push((await para(pp)).replace(/\s+/g, ' ').trim());
+            cells.push(ps.filter(Boolean).join(' ').replace(/\|/g, '/'));
+          }
+          lines.push('| ' + cells.join(' | ') + ' |');
+        }
+        lines.push('');
+      }
+    }
+    let text = tidy(lines);
+    return { text, images, stats };
+  }
+
+  return { cfbRead, parseMTEF, mtefToMarkup, oleToMarkup, vfJsonToMarkup, ommlToMarkup, docxToMarkup, legacy, tcvn3, vni };
+})();
+
+
+</script>
 <script src="https://cdn.jsdelivr.net/npm/openchemlib@8.17.0/dist/openchemlib-minimal.js"></script>
 <style>
 /* Bố cục: thanh đỏ sẫm trên cùng · trái là ô nội dung · phải là trang A4 xem trước */
@@ -156,6 +620,7 @@ svg.vf{overflow:visible}
   <main class="main">
     <section class="panel">
       <div class="ph"><h2>Nội dung đề</h2><div class="spacer"></div>
+        <button class="btn btn-soft" id="btnDoc" title="Mở file Word (.docx): đọc thẳng chữ, bảng, ảnh và công thức MathType / iu iu. Có thể kéo thả file vào trang">Mở Word</button>
         <button class="btn btn-soft" id="btnImgs" title="Ảnh chụp đề hoặc ảnh chụp màn hình PDF, dùng để cắt hình. Có thể dán bằng Ctrl+V">Ảnh đề <b id="imgN">0</b></button>
         <button class="btn btn-soft" id="btnSample">Đề mẫu</button>
         <button class="btn btn-soft" id="btnClear">Xoá</button></div>
@@ -194,7 +659,7 @@ svg.vf{overflow:visible}
       <span style="flex:1"></span><button class="btn btn-soft" id="cCancel">Huỷ</button><button class="btn btn-main" style="background:var(--wine);color:#fff" id="cSave">Chèn vào đề</button></footer>
   </div>
 </div>
-<input type="file" id="fileSrc" accept="image/*" multiple hidden><input type="file" id="fileOwn" accept="image/*" hidden>
+<input type="file" id="fileDoc" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden><input type="file" id="fileSrc" accept="image/*" multiple hidden><input type="file" id="fileOwn" accept="image/*" hidden>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -221,6 +686,9 @@ A. <đáp án>                  B., C., D. mỗi đáp án một dòng riêng
 a) <nhận định>               mỗi ý một dòng
 1.1. <mục tự luận>           Bước 1: <bước thí nghiệm>
 PT: <phương trình>           mỗi phương trình đứng riêng một dòng PT:
+PT: A -[đk 1]-> B -[đk 2]-> C   CHUỖI/SƠ ĐỒ PHẢN ỨNG cũng là PT: — chép đủ mọi chất và mọi mũi tên trên MỘT dòng PT:,
+                             mỗi mũi tên kèm nhãn trên|dưới đúng như đề (vd: Cellulose -[+H_2O, H^+, t^o]-> Glucose -[enzyme]-> Ethanol);
+                             tên chất viết bằng chữ giữ nguyên chữ; sơ đồ phân nhánh thì tách mỗi nhánh một dòng PT:
 | tiêu đề 1 | tiêu đề 2 |    bảng: mỗi hàng một dòng, hàng đầu là tiêu đề, ô trống để trống
 
 HÌNH — đặt đúng chỗ hình xuất hiện trong câu, mỗi hình một dòng:
@@ -693,7 +1161,7 @@ function vfOleBin(doc,L){const enc=new TextEncoder();
     {name:"\u0003ObjInfo",data:hex2u8("000003000d00")},
     {name:"Formula.json",data:enc.encode(JSON.stringify(doc))},
     {name:"Layout.json",data:enc.encode(JSON.stringify({baselineDip:+L.base.toFixed(4),widthDip:+L.w.toFixed(4),heightDip:+L.h.toFixed(4),renderer:"DirectWrite-outline-1"}))}])}
-const APP_VER="1.8 · OLE";
+const APP_VER="1.9.1 · đọc Word";
 async function buildDocx(){
   const blocks=parse(src.value);const media=[],oles=[];let rid=10,pid=1,shapeDefined=false;const useOle=true;
   const runT=(p,extra="")=>{let r="";if(p.b)r+="<w:b/>";if(p.i)r+="<w:i/>";if(p.unclear)r+=`<w:highlight w:val="yellow"/>`;if(p.va)r+=`<w:vertAlign w:val="${p.va==="sub"?"subscript":"superscript"}"/>`;r+=extra;
@@ -808,6 +1276,27 @@ const srcImgs=[];let curImg=-1,cropKey=null,selR=null,outCanvas=null,ownMode=fal
 const cv=document.getElementById("cropCv"),cg=cv.getContext("2d"),selEl=document.getElementById("sel"),cropModal=document.getElementById("cropModal");
 function loadFiles(files,cb){[...files].forEach(f=>{if(!f.type.startsWith("image/"))return;const rd=new FileReader();rd.onload=()=>{const im=new Image();im.onload=()=>cb(im);im.src=rd.result};rd.readAsDataURL(f)})}
 function addSrc(im){srcImgs.push(im);document.getElementById("imgN").textContent=srcImgs.length;if(!cropModal.hidden){drawThumbs();showImg(srcImgs.length-1)}document.getElementById("imgN").parentNode.classList.add("pop");}
+async function openDocx(f){
+  if(!/\.docx$/i.test(f.name)){toast(/\.doc$/i.test(f.name)?"File .doc cũ: mở bằng Word rồi Lưu thành .docx trước nhé":"Chỉ đọc được file .docx");return}
+  toast("Đang đọc file Word…");
+  try{
+    const r=await DocImport.docxToMarkup(f);
+    for(const k in figStore)if(/trong file Word#/.test(k))delete figStore[k];
+    for(let i=0;i<r.images.length;i++){const im=r.images[i];
+      try{const url=URL.createObjectURL(im.blob);const img=await new Promise((ok,no)=>{const x=new Image();x.onload=()=>ok(x);x.onerror=no;x.src=url});
+        const c=document.createElement("canvas");c.width=img.naturalWidth;c.height=img.naturalHeight;const g=c.getContext("2d");g.fillStyle="#fff";g.fillRect(0,0,c.width,c.height);g.drawImage(img,0,0);
+        const W=Math.min(im.wPt||img.naturalWidth*.75,470),H=W*c.height/c.width,png=c.toDataURL("image/png");
+        const blob=await new Promise(ok=>c.toBlob(ok,"image/png"));
+        figStore["hinh:ảnh "+(i+1)+" trong file Word#1"]={png,blob,W,H};addSrc(img)}catch(e){console.warn("ảnh",e)}}
+    src.value=r.text;render();try{localStorage.setItem("iuiu-draft",src.value)}catch(e){}
+    const st=r.stats,bad=st.ole-st.oleOk;
+    toast(`✓ Đã đọc file Word: ${st.oleOk} công thức MathType/iu iu${st.omml?`, ${st.omml} công thức Word`:""}, ${r.images.length} ảnh`+(bad?` · <b>${bad} công thức không đọc được</b> (đánh dấu [CÔNG THỨC])`:""));
+  }catch(e){console.error(e);toast("Không đọc được file Word này")}}
+document.getElementById("btnDoc").onclick=()=>document.getElementById("fileDoc").click();
+document.getElementById("fileDoc").onchange=e=>{const f=e.target.files[0];if(f)openDocx(f);e.target.value=""};
+window.addEventListener("dragover",e=>{e.preventDefault()});
+window.addEventListener("drop",e=>{e.preventDefault();const fs=[...(e.dataTransfer.files||[])];const d=fs.find(f=>/\.docx?$/i.test(f.name));
+  if(d){openDocx(d);return}const ims=fs.filter(f=>/^image\//.test(f.type));if(ims.length)loadFiles(ims,im=>{addSrc(im);toast("Đã thêm ảnh đề")})});
 document.getElementById("btnImgs").onclick=()=>document.getElementById("fileSrc").click();
 document.getElementById("cAdd").onclick=()=>document.getElementById("fileSrc").click();
 document.getElementById("fileSrc").onchange=e=>{loadFiles(e.target.files,im=>{addSrc(im);toast("Đã thêm ảnh đề. Bấm vào ô hình trong bản xem trước để cắt")});e.target.value=""};
