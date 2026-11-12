@@ -296,42 +296,47 @@ const esc=s=>String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"
 function lay(n,pt){
   if(n.type==="run"){
     const it=n.role==="variable",w=textW(n.text,pt,it);
-    return {w,asc:pt*.70,desc:pt*.22,svg:(x,y)=>n.text?`<text x="${x.toFixed(2)}" y="${y.toFixed(2)}" font-size="${pt}"${it?' font-style="italic"':""}>${esc(n.text)}</text>`:""};
+    const t=n.text||"",tall=/[A-ZĐ0-9bdfhklt()\[\]{}\/|]/.test(t)||t.normalize("NFD").length>t.length,low=/[gjpqyç(),;\[\]{}]/.test(t);
+    return {w,asc:pt*.70,desc:pt*.22,ia:t.trim()?pt*(tall?.70:.47):0,id:low?pt*.21:0,svg:(x,y)=>n.text?`<text x="${x.toFixed(2)}" y="${y.toFixed(2)}" font-size="${pt}"${it?' font-style="italic"':""}>${esc(n.text)}</text>`:""};
   }
   if(n.type==="row"){
-    const parts=n.children.map(c=>lay(c,pt));let w=0,asc=n.children.length?0:0,desc=0;
-    parts.forEach(p=>{w+=p.w;asc=Math.max(asc,p.asc);desc=Math.max(desc,p.desc)});
-    return {w,asc,desc,svg:(x,y)=>{let s="",cx=x;parts.forEach(p=>{s+=p.svg(cx,y);cx+=p.w});return s}};
+    const parts=n.children.map(c=>lay(c,pt));let w=0,asc=n.children.length?0:0,desc=0,ia=0,id=0;
+    parts.forEach(p=>{w+=p.w;asc=Math.max(asc,p.asc);desc=Math.max(desc,p.desc);ia=Math.max(ia,p.ia||0);id=Math.max(id,p.id||0)});
+    return {w,asc,desc,ia,id,svg:(x,y)=>{let s="",cx=x;parts.forEach(p=>{s+=p.svg(cx,y);cx+=p.w});return s}};
   }
   if(n.type==="script"){
     const sp=pt*.70,b=lay(n.children[0],pt),su=lay(n.children[1],sp),sb=lay(n.children[2],sp);
     const up=pt*.40,dn=pt*.22,sw=Math.max(su.w,sb.w)+pt*.03;
     const asc=Math.max(b.asc,su.w?up+su.asc:0),desc=Math.max(b.desc,sb.w?dn+sb.desc:0);
+    const ia=Math.max(b.ia||0,su.w?up+(su.ia||0):0),id=Math.max(b.id||0,sb.w?dn+(sb.id||0):0);
     if(n.variant===1){ // chỉ số bên trái, căn phải
-      return {w:sw+b.w,asc,desc,svg:(x,y)=>su.svg(x+sw-su.w-pt*.03,y-up)+sb.svg(x+sw-sb.w-pt*.03,y+dn)+b.svg(x+sw,y)};
+      return {w:sw+b.w,asc,desc,ia,id,svg:(x,y)=>su.svg(x+sw-su.w-pt*.03,y-up)+sb.svg(x+sw-sb.w-pt*.03,y+dn)+b.svg(x+sw,y)};
     }
-    return {w:b.w+sw,asc,desc,svg:(x,y)=>b.svg(x,y)+su.svg(x+b.w+pt*.02,y-up)+sb.svg(x+b.w+pt*.02,y+dn)};
+    return {w:b.w+sw,asc,desc,ia,id,svg:(x,y)=>b.svg(x,y)+su.svg(x+b.w+pt*.02,y-up)+sb.svg(x+b.w+pt*.02,y+dn)};
   }
-  if(n.type==="arrow"){
-    const lp=pt*.75,ab=lay(n.children[0],lp),bl=lay(n.children[1],lp);
-    const L=Math.max((n.length||2.4)*pt,Math.max(ab.w,bl.w)+pt*.8),pad=pt*.18,axis=pt*.27,gap=pt*.16;
-    const v=n.variant||0,two=v===3||v===4,off=two?pt*.10:0;
-    const asc=Math.max(pt*.7,axis+off+gap+(ab.w?ab.asc+ab.desc:0)),desc=Math.max(pt*.22,(bl.w?bl.asc+bl.desc+gap-axis+off:0));
-    const W=L+2*pad;
-    return {w:W,asc,desc,svg:(x,y)=>{
-      const x1=x+pad,x2=x+pad+L,ay=y-axis,hl=pt*.34,hw=pt*.13,sw=(pt*.055).toFixed(3);
-      const line=(a,b,yy)=>`<line x1="${a.toFixed(2)}" y1="${yy.toFixed(2)}" x2="${b.toFixed(2)}" y2="${yy.toFixed(2)}" stroke="#000" stroke-width="${sw}"/>`;
-      const head=(tx,yy,dir,half)=>{const bx=tx-dir*hl;
-        return half?`<path d="M${tx.toFixed(2)} ${yy.toFixed(2)} L${bx.toFixed(2)} ${(yy+half*hw*1.4).toFixed(2)} L${(bx+dir*hl*.25).toFixed(2)} ${yy.toFixed(2)}Z" fill="#000"/>`
-        :`<path d="M${tx.toFixed(2)} ${yy.toFixed(2)} L${bx.toFixed(2)} ${(yy-hw).toFixed(2)} L${(bx+dir*hl*.28).toFixed(2)} ${yy.toFixed(2)} L${bx.toFixed(2)} ${(yy+hw).toFixed(2)}Z" fill="#000"/>`};
-      let s="";
-      if(v===0)s+=line(x1,x2-hl*.6,ay)+head(x2,ay,1);
-      else if(v===1)s+=line(x1+hl*.6,x2,ay)+head(x1,ay,-1);
-      else if(v===2)s+=line(x1+hl*.6,x2-hl*.6,ay)+head(x2,ay,1)+head(x1,ay,-1);
-      else if(v===3)s+=line(x1,x2-hl*.5,ay-off)+head(x2,ay-off,1,-1)+line(x1+hl*.5,x2,ay+off)+head(x1,ay+off,-1,1);
-      else s+=line(x1,x2-hl*.6,ay-off)+head(x2,ay-off,1)+line(x1+hl*.6,x2,ay+off)+head(x1,ay+off,-1);
-      if(ab.w)s+=ab.svg(x+(W-ab.w)/2,ay-off-gap-ab.desc);
-      if(bl.w)s+=bl.svg(x+(W-bl.w)/2,ay+off+gap+bl.asc);
+  if(n.type==="arrow"){ // kiểu đã duyệt (giống MathType): thân 0,06 em, đầu khối liền, ngạnh 40°, nhãn 62%, cách thân 0,24 em
+    const em=pt,lp=pt*.62,ab=lay(n.children[0],lp),bl=lay(n.children[1],lp),hasUp=ab.w>0,hasDn=bl.w>0;
+    const L=Math.max(em*(n.length||2.4),hasUp?ab.w+em*.8:0,hasDn?bl.w+em*.8:0),out=em*.22,W=L+out*2;
+    const axis=em*.25,sw=em*.06,ang=40*Math.PI/180,bl_=em*.40,t1=em*.10,t0=em*.05,gap=em*.24;
+    const v=n.variant||0,two=v===3||v===4,sep=two?em*.15:0;
+    const upH=hasUp?(ab.ia||0)+(ab.id||0)+gap:0,dnH=hasDn?(bl.ia||0)+(bl.id||0)+gap:0;
+    const asc=Math.max(em*.62,axis+sep+Math.max(upH,bl_*Math.sin(ang)*.5)),desc=Math.max(em*.2,sep+dnH-axis+em*.02);
+    return {w:W,asc,desc,ia:asc,id:desc,svg:(x,y)=>{
+      const x1=x+out,x2=x+out+L,ay=y-axis,f=q=>q.toFixed(2),P=pts=>"M"+pts.map(q=>f(q[0])+" "+f(q[1])).join(" L")+"Z";
+      const shaft=(a,b,yy)=>`<line x1="${f(a)}" y1="${f(yy)}" x2="${f(b)}" y2="${f(yy)}" stroke="#000" stroke-width="${f(sw)}"/>`;
+      const head=(tx,ty,dir,half)=>{const E=side=>{const ex=tx-dir*bl_*Math.cos(ang),ey=ty+side*bl_*Math.sin(ang),ux=(ex-tx)/bl_,uy=(ey-ty)/bl_,nx=-uy*side*dir,ny=ux*side*dir;return {eo:[ex,ey],ei:[ex+nx*t0,ey+ny*t0]}};
+        const up=E(-1),dn=E(1),T=[tx,ty],inn=[tx-dir*t1/Math.sin(ang),ty],hs=sw/2;
+        if(half===-1)return `<path d="${P([T,up.eo,up.ei,[inn[0],ty+hs],[tx-dir*t1,ty+hs]])}" fill="#000"/>`;
+        if(half===1)return `<path d="${P([T,dn.eo,dn.ei,[inn[0],ty-hs],[tx-dir*t1,ty-hs]])}" fill="#000"/>`;
+        return `<path d="${P([T,up.eo,up.ei,inn,dn.ei,dn.eo])}" fill="#000"/>`};
+      const tip=em*.05;let s="";
+      if(v===0)s+=shaft(x1,x2-tip,ay)+head(x2,ay,1);
+      else if(v===1)s+=shaft(x1+tip,x2,ay)+head(x1,ay,-1);
+      else if(v===2)s+=shaft(x1+tip,x2-tip,ay)+head(x2,ay,1)+head(x1,ay,-1);
+      else if(v===3)s+=shaft(x1,x2-tip,ay-sep)+head(x2,ay-sep,1,-1)+shaft(x1+tip,x2,ay+sep)+head(x1,ay+sep,-1,1);
+      else s+=shaft(x1,x2-tip,ay-sep)+head(x2,ay-sep,1)+shaft(x1+tip,x2,ay+sep)+head(x1,ay+sep,-1);
+      if(hasUp)s+=ab.svg(x+(W-ab.w)/2,ay-sep-gap-(ab.id||0));
+      if(hasDn)s+=bl.svg(x+(W-bl.w)/2,ay+sep+gap+(bl.ia||0));
       return s}};
   }
   return {w:0,asc:0,desc:0,svg:()=>""};
@@ -682,7 +687,7 @@ function vfOleBin(doc,L){const enc=new TextEncoder();
     {name:"\u0003ObjInfo",data:hex2u8("000003000d00")},
     {name:"Formula.json",data:enc.encode(JSON.stringify(doc))},
     {name:"Layout.json",data:enc.encode(JSON.stringify({baselineDip:+L.base.toFixed(4),widthDip:+L.w.toFixed(4),heightDip:+L.h.toFixed(4),renderer:"DirectWrite-outline-1"}))}])}
-const APP_VER="1.4 · OLE";
+const APP_VER="1.6 · OLE";
 async function buildDocx(){
   const blocks=parse(src.value);const media=[],oles=[];let rid=10,pid=1,shapeDefined=false;const useOle=true;
   const runT=(p,extra="")=>{let r="";if(p.b)r+="<w:b/>";if(p.i)r+="<w:i/>";if(p.unclear)r+=`<w:highlight w:val="yellow"/>`;if(p.va)r+=`<w:vertAlign w:val="${p.va==="sub"?"subscript":"superscript"}"/>`;r+=extra;
